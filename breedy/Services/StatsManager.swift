@@ -375,6 +375,15 @@ final class StatsManager {
         return (try? context.fetch(descriptor))?.first
     }
     
+    func recentCheckIns(days: Int) -> [DailyCheckIn] {
+        guard let context = modelContext else { return [] }
+        let startDate = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        let predicate = #Predicate<DailyCheckIn> { $0.date >= startDate }
+        var descriptor = FetchDescriptor<DailyCheckIn>(predicate: predicate)
+        descriptor.sortBy = [SortDescriptor(\.date, order: .forward)]
+        return (try? context.fetch(descriptor)) ?? []
+    }
+    
     // MARK: - Data Export
     
     func exportData() -> Data? {

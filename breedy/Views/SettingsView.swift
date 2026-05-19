@@ -5,6 +5,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @Environment(StatsManager.self) private var statsManager
+    @Environment(SubscriptionManager.self) private var subscriptionManager
     @Environment(\.colorScheme) private var colorScheme
     
     @AppStorage("soundEnabled") private var soundEnabled = true
@@ -19,10 +20,17 @@ struct SettingsView: View {
     @State private var exportData: Data?
     @State private var showResetAlert = false
     @State private var showReminders = false
+    @State private var showPaywall = false
     
     var body: some View {
         NavigationStack {
             List {
+                // Subscription
+                subscriptionSection
+                
+                // Your Profile
+                profileSection
+                
                 // Session preferences
                 sessionSection
                 
@@ -47,6 +55,9 @@ struct SettingsView: View {
             .sheet(isPresented: $showReminders) {
                 RemindersSettingsView()
             }
+            .sheet(isPresented: $showPaywall) {
+                PaywallView(showCloseButton: true)
+            }
             .alert("Reset All Data", isPresented: $showResetAlert) {
                 Button("Cancel", role: .cancel) {}
                 Button("Reset", role: .destructive) {
@@ -55,6 +66,77 @@ struct SettingsView: View {
             } message: {
                 Text("This will permanently delete all your sessions, streaks, and progress. This action cannot be undone.")
             }
+        }
+    }
+    
+    // MARK: - Subscription Section
+    
+    private var subscriptionSection: some View {
+        Section {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(Color(hex: 0xFFD700))
+                        Text("Premium")
+                            .font(BDDesign.Typography.bodyMedium)
+                    }
+                    Text(subscriptionManager.statusText)
+                        .font(BDDesign.Typography.caption)
+                        .foregroundStyle(BDDesign.Colors.gray500)
+                    if let since = subscriptionManager.memberSince {
+                        Text("Member since \(since)")
+                            .font(BDDesign.Typography.caption)
+                            .foregroundStyle(BDDesign.Colors.gray400)
+                    }
+                }
+                Spacer()
+            }
+            
+            Button {
+                showPaywall = true
+            } label: {
+                Label("Manage Subscription", systemImage: "creditcard")
+            }
+            .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
+        } header: {
+            Text("Subscription")
+        }
+    }
+    
+    // MARK: - Profile Section
+    
+    private var profileSection: some View {
+        Section {
+            if !appState.userName.isEmpty {
+                HStack {
+                    Text("Name")
+                    Spacer()
+                    Text(appState.userName)
+                        .foregroundStyle(BDDesign.Colors.gray500)
+                }
+            }
+            
+            if !appState.userGoal.isEmpty {
+                HStack {
+                    Text("Goal")
+                    Spacer()
+                    Text(appState.userGoal)
+                        .foregroundStyle(BDDesign.Colors.gray500)
+                }
+            }
+            
+            HStack {
+                Text("Daily Target")
+                Spacer()
+                Text("\(appState.dailyGoalMinutes) min")
+                    .foregroundStyle(BDDesign.Colors.gray500)
+            }
+        } header: {
+            Text("Your Profile")
+        } footer: {
+            Text("Personalization from your onboarding choices.")
         }
     }
     
@@ -182,7 +264,7 @@ struct SettingsView: View {
             }
             
             Button {
-                // Placeholder for restore purchases
+                Task { _ = await subscriptionManager.restorePurchases() }
             } label: {
                 Label("Restore Purchases", systemImage: "arrow.clockwise")
             }
@@ -197,7 +279,16 @@ struct RemindersSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     
-    @ObservedObject private var notificationWrapper = NotificationSettingsWrapper()
+    @AppStorage("reminder_morning_enabled") private var morningEnabled = false
+    @AppStorage("reminder_morning_hour") private var morningHour = 7
+    @AppStorage("reminder_morning_minute") private var morningMinute = 30
+    @AppStorage("reminder_work_enabled") private var workEnabled = false
+    @AppStorage("reminder_work_hour") private var workHour = 12
+    @AppStorage("reminder_work_minute") private var workMinute = 0
+    @AppStorage("reminder_evening_enabled") private var eveningEnabled = false
+    @AppStorage("reminder_evening_hour") private var eveningHour = 21
+    @AppStorage("reminder_evening_minute") private var eveningMinute = 0
+    @AppStorage("reminder_streak_enabled") private var streakEnabled = true
     
     var body: some View {
         NavigationStack {
@@ -207,34 +298,34 @@ struct RemindersSettingsView: View {
                         title: "Morning Reminder",
                         subtitle: "Start your day mindfully",
                         icon: "sunrise.fill",
-                        isEnabled: $notificationWrapper.morningEnabled,
-                        hour: $notificationWrapper.morningHour,
-                        minute: $notificationWrapper.morningMinute
+                        isEnabled: $morningEnabled,
+                        hour: $morningHour,
+                        minute: $morningMinute
                     )
                     
                     reminderRow(
                         title: "Work Break",
                         subtitle: "Reset focus during the day",
                         icon: "briefcase.fill",
-                        isEnabled: $notificationWrapper.workEnabled,
-                        hour: $notificationWrapper.workHour,
-                        minute: $notificationWrapper.workMinute
+                        isEnabled: $workEnabled,
+                        hour: $workHour,
+                        minute: $workMinute
                     )
                     
                     reminderRow(
                         title: "Evening Unwind",
                         subtitle: "Wind down before sleep",
                         icon: "moon.fill",
-                        isEnabled: $notificationWrapper.eveningEnabled,
-                        hour: $notificationWrapper.eveningHour,
-                        minute: $notificationWrapper.eveningMinute
+                        isEnabled: $eveningEnabled,
+                        hour: $eveningHour,
+                        minute: $eveningMinute
                     )
                 } header: {
                     Text("Daily Reminders")
                 }
                 
                 Section {
-                    Toggle("Streak Protection", isOn: $notificationWrapper.streakEnabled)
+                    Toggle("Streak Protection", isOn: $streakEnabled)
                         .tint(BDDesign.Colors.accentEnergy)
                 } header: {
                     Text("Smart Reminders")
@@ -298,21 +389,7 @@ struct RemindersSettingsView: View {
     }
 }
 
-// MARK: - Notification Settings Wrapper (bridges @AppStorage to @ObservedObject)
 
-@MainActor
-class NotificationSettingsWrapper: ObservableObject {
-    @AppStorage("reminder_morning_enabled") var morningEnabled = false
-    @AppStorage("reminder_morning_hour") var morningHour = 7
-    @AppStorage("reminder_morning_minute") var morningMinute = 30
-    @AppStorage("reminder_work_enabled") var workEnabled = false
-    @AppStorage("reminder_work_hour") var workHour = 12
-    @AppStorage("reminder_work_minute") var workMinute = 0
-    @AppStorage("reminder_evening_enabled") var eveningEnabled = false
-    @AppStorage("reminder_evening_hour") var eveningHour = 21
-    @AppStorage("reminder_evening_minute") var eveningMinute = 0
-    @AppStorage("reminder_streak_enabled") var streakEnabled = true
-}
 
 // MARK: - Share Sheet
 
@@ -330,4 +407,5 @@ struct ShareSheet: UIViewControllerRepresentable {
     SettingsView()
         .environment(AppState())
         .environment(StatsManager())
+        .environment(SubscriptionManager())
 }

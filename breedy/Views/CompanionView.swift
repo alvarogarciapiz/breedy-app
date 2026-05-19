@@ -63,21 +63,43 @@ struct CompanionView: View {
     
     private var mascotHero: some View {
         VStack(spacing: BDDesign.Spacing.lg) {
-            BreedyMascotView(
-                mood: companionMood,
-                size: 140
+            BreedyImageView(
+                imageName: companionImageName,
+                size: 160,
+                auraColor: companionAuraColor
             )
             
-            Text("Breedy")
-                .font(BDDesign.Typography.sectionHeading)
-                .tracking(-1.28)
-                .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
-            
-            Text("Your breathing companion")
-                .font(BDDesign.Typography.bodySmall)
-                .foregroundStyle(BDDesign.Colors.gray500)
+            VStack(spacing: 4) {
+                Text("Breedy")
+                    .font(BDDesign.Typography.sectionHeading)
+                    .tracking(-1.28)
+                    .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
+                
+                HStack(spacing: 6) {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(BDDesign.Colors.accentAnxiety.opacity(0.6))
+                    Text("Your breathing companion")
+                        .font(BDDesign.Typography.bodySmall)
+                        .foregroundStyle(BDDesign.Colors.gray500)
+                }
+            }
         }
         .padding(.top, BDDesign.Spacing.lg)
+    }
+    
+    private var companionImageName: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        if hour >= 22 || hour < 6 { return "breedy_sleep" }
+        if let s = stats, s.currentStreak >= 7 { return "breedy_greet" }
+        return "breedy_awake"
+    }
+    
+    private var companionAuraColor: Color {
+        let hour = Calendar.current.component(.hour, from: Date())
+        if hour >= 22 || hour < 6 { return BDDesign.Colors.accentSleep }
+        if let s = stats, s.currentStreak >= 7 { return Color(hex: 0xFFD700) }
+        return BDDesign.Colors.accentCalm
     }
     
     // MARK: - Message Bubble

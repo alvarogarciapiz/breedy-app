@@ -60,6 +60,12 @@ struct BreathingPattern: Codable, Identifiable, Hashable {
     var isCustom: Bool
     var mascotMood: MascotMood
     
+    // Science metadata
+    var description: String
+    var scienceDetail: String
+    var benefitTags: [String]
+    var scienceBadge: String
+    
     var cycleDuration: Double {
         inhaleSeconds + hold1Seconds + exhaleSeconds + hold2Seconds
     }
@@ -88,7 +94,11 @@ struct BreathingPattern: Codable, Identifiable, Hashable {
         colorHex: UInt = 0x0A72EF,
         category: PatternCategory = .calm,
         isCustom: Bool = false,
-        mascotMood: MascotMood = .calm
+        mascotMood: MascotMood = .calm,
+        description: String = "",
+        scienceDetail: String = "",
+        benefitTags: [String] = [],
+        scienceBadge: String = ""
     ) {
         self.id = id
         self.title = title
@@ -101,6 +111,10 @@ struct BreathingPattern: Codable, Identifiable, Hashable {
         self.category = category
         self.isCustom = isCustom
         self.mascotMood = mascotMood
+        self.description = description
+        self.scienceDetail = scienceDetail
+        self.benefitTags = benefitTags
+        self.scienceBadge = scienceBadge
     }
 }
 
@@ -226,6 +240,7 @@ enum MascotMood: String, Codable, CaseIterable {
     case calm
     case happy
     case sleepy
+    case happySleep
     case energetic
     case supportive
     case celebrating
@@ -237,6 +252,7 @@ enum MascotMood: String, Codable, CaseIterable {
         case .calm:        return "😌"
         case .happy:       return "😊"
         case .sleepy:      return "😴"
+        case .happySleep:  return "😇"
         case .energetic:   return "⚡"
         case .supportive:  return "🤗"
         case .celebrating: return "🎉"
@@ -255,7 +271,11 @@ enum BreathingPresets {
         icon: "square",
         colorHex: 0x0A72EF,
         category: .focus,
-        mascotMood: .calm
+        mascotMood: .calm,
+        description: "Equal-phase breathing used by Navy SEALs for focus and calm under pressure.",
+        scienceDetail: "Box breathing activates the parasympathetic nervous system through controlled, rhythmic patterns. Studies show it reduces cortisol by up to 20% and significantly improves HRV after just 5 minutes.\n\nResearch: Ma et al., 2017 — 'The Effect of Diaphragmatic Breathing on Attention, Negative Affect and Stress.'",
+        benefitTags: ["HRV ↑", "Cortisol ↓", "Focus"],
+        scienceBadge: "Peer-reviewed"
     )
     
     static let fourSevenEight = BreathingPattern(
@@ -264,7 +284,11 @@ enum BreathingPresets {
         icon: "moon.fill",
         colorHex: 0x7928CA,
         category: .sleep,
-        mascotMood: .sleepy
+        mascotMood: .sleepy,
+        description: "Dr. Andrew Weil's natural tranquilizer for the nervous system.",
+        scienceDetail: "The extended exhale (twice the inhale length) triggers the vagal brake, slowing heart rate and activating the rest-and-digest response. The 7-second hold saturates blood with oxygen, creating a deep calming effect.\n\nDeveloped by Dr. Andrew Weil, based on pranayama breathing traditions.",
+        benefitTags: ["Sleep Quality", "Vagal Tone", "Relaxation"],
+        scienceBadge: "Clinical practice"
     )
     
     static let coherentBreathing = BreathingPattern(
@@ -273,7 +297,11 @@ enum BreathingPresets {
         icon: "waveform.path",
         colorHex: 0x0A72EF,
         category: .calm,
-        mascotMood: .meditating
+        mascotMood: .meditating,
+        description: "5.5 breaths per minute — the rate that maximizes heart rate variability.",
+        scienceDetail: "Breathing at ~5.5 breaths/minute synchronizes heart rate, blood pressure, and nervous system oscillations — a state called 'resonance.' This maximizes HRV, the gold-standard biomarker for stress resilience.\n\nResearch: Lehrer et al., 2003 — 'Heart Rate Variability Biofeedback.' Also featured in James Nestor's 'Breath.'",
+        benefitTags: ["HRV Max", "Resonance", "Nervous System"],
+        scienceBadge: "Gold standard"
     )
     
     static let physiologicalSigh = BreathingPattern(
@@ -282,7 +310,11 @@ enum BreathingPresets {
         icon: "wind",
         colorHex: 0xDE1D8D,
         category: .anxiety,
-        mascotMood: .supportive
+        mascotMood: .supportive,
+        description: "Stanford-backed technique for rapid real-time stress reduction.",
+        scienceDetail: "Discovered by Dr. Andrew Huberman at Stanford. The double-inhale followed by an extended exhale is the fastest known way to reduce physiological stress in real-time. It reinflates collapsed lung alveoli, maximizing CO₂ offload.\n\nResearch: Balban et al., 2023 — 'Brief structured respiration practices enhance mood and reduce physiological arousal.' Published in Cell Reports Medicine.",
+        benefitTags: ["Cortisol ↓↓", "Instant Calm", "CO₂ Balance"],
+        scienceBadge: "Stanford research"
     )
     
     static let deepCalm = BreathingPattern(
@@ -291,7 +323,11 @@ enum BreathingPresets {
         icon: "water.waves",
         colorHex: 0x0072F5,
         category: .calm,
-        mascotMood: .calm
+        mascotMood: .calm,
+        description: "Extended exhale pattern for deep parasympathetic activation.",
+        scienceDetail: "Exhale-dominant patterns (exhale > inhale) shift the autonomic nervous system toward parasympathetic dominance. The holds allow for full gas exchange, enhancing the calming effect.\n\nBased on principles from Porges' Polyvagal Theory and clinical breathwork protocols.",
+        benefitTags: ["Deep Relaxation", "Vagal Tone", "Blood Pressure ↓"],
+        scienceBadge: "Evidence-based"
     )
     
     static let energyBreath = BreathingPattern(
@@ -300,7 +336,11 @@ enum BreathingPresets {
         icon: "bolt.fill",
         colorHex: 0xFF5B4F,
         category: .energy,
-        mascotMood: .energetic
+        mascotMood: .energetic,
+        description: "Fast-paced breathing to increase alertness and sympathetic tone.",
+        scienceDetail: "Faster breathing rates (10+ breaths/min) with equal inhale-exhale ratios increase sympathetic nervous system activation. This raises heart rate, releases noradrenaline, and boosts alertness — similar to a natural caffeine effect.\n\nBased on: Zaccaro et al., 2018 — 'How Breath-Control Can Change Your Life.'",
+        benefitTags: ["Alertness ↑", "Noradrenaline", "Natural Energy"],
+        scienceBadge: "Evidence-based"
     )
     
     static let sleepWindDown = BreathingPattern(
@@ -309,7 +349,11 @@ enum BreathingPresets {
         icon: "moon.stars.fill",
         colorHex: 0x7928CA,
         category: .sleep,
-        mascotMood: .sleepy
+        mascotMood: .sleepy,
+        description: "Gentle exhale-heavy pattern to prepare your body for restful sleep.",
+        scienceDetail: "This pattern combines a moderate exhale extension with holds that slow the breathing rate to ~4 breaths/minute. At this pace, the body shifts into pre-sleep parasympathetic mode, lowering core body temperature and reducing muscle tension.\n\nBased on clinical sleep breathing protocols and NSDR (Non-Sleep Deep Rest) principles.",
+        benefitTags: ["Sleep Onset", "Melatonin ↑", "Muscle Relaxation"],
+        scienceBadge: "Clinical practice"
     )
     
     static let anxietyReset = BreathingPattern(
@@ -318,7 +362,11 @@ enum BreathingPresets {
         icon: "heart.fill",
         colorHex: 0xDE1D8D,
         category: .anxiety,
-        mascotMood: .supportive
+        mascotMood: .supportive,
+        description: "1:1.5 ratio exhale-focused breathing to calm the fight-or-flight response.",
+        scienceDetail: "When exhale duration exceeds inhale, the vagus nerve sends signals to slow heart rate (respiratory sinus arrhythmia). This directly counteracts the sympathetic fight-or-flight response that drives anxiety.\n\nResearch: Gerritsen & Band, 2018 — 'Breath of Life: The Respiratory Vagal Stimulation Model of Contemplative Activity.'",
+        benefitTags: ["Anxiety ↓", "Heart Rate ↓", "Vagus Nerve"],
+        scienceBadge: "Peer-reviewed"
     )
     
     static let allPresets: [BreathingPattern] = [

@@ -26,6 +26,16 @@ final class AppState {
     @ObservationIgnored
     @AppStorage("mascotIntensity") var mascotIntensity: String = "normal"
     
+    // Personalization (from enhanced onboarding)
+    @ObservationIgnored
+    @AppStorage("userName") var userName: String = ""
+    @ObservationIgnored
+    @AppStorage("userExperience") var userExperience: String = "never"
+    @ObservationIgnored
+    @AppStorage("preferredTimes") var preferredTimes: String = ""
+    @ObservationIgnored
+    @AppStorage("dailyGoalMinutes") var dailyGoalMinutes: Int = 5
+    
     // Settings
     @ObservationIgnored
     @AppStorage("soundEnabled") var soundEnabled = true
@@ -38,14 +48,20 @@ final class AppState {
     @ObservationIgnored
     @AppStorage("privacyMode") var privacyMode = false
     
+    // Parsed preferred times helper
+    var preferredTimesList: [String] {
+        preferredTimes.split(separator: ",").map(String.init)
+    }
+    
     // Time-based greeting
     var greeting: String {
         let hour = Calendar.current.component(.hour, from: Date())
+        let name = userName.isEmpty ? "" : ", \(userName)"
         switch hour {
-        case 5..<12:  return "Good morning"
-        case 12..<17: return "Good afternoon"
-        case 17..<21: return "Good evening"
-        default:      return "Good night"
+        case 5..<12:  return "Good morning\(name)"
+        case 12..<17: return "Good afternoon\(name)"
+        case 17..<21: return "Good evening\(name)"
+        default:      return "Good night\(name)"
         }
     }
     
@@ -97,7 +113,7 @@ enum AppTab: String, CaseIterable {
     case home = "Home"
     case sessions = "Sessions"
     case progress = "Progress"
-    case companion = "Companion"
+    case insights = "Insights"
     case settings = "Settings"
     
     var icon: String {
@@ -105,7 +121,7 @@ enum AppTab: String, CaseIterable {
         case .home:      return "house.fill"
         case .sessions:  return "wind"
         case .progress:  return "chart.bar.fill"
-        case .companion: return "face.smiling.fill"
+        case .insights:  return "chart.line.uptrend.xyaxis"
         case .settings:  return "gearshape.fill"
         }
     }

@@ -23,8 +23,8 @@ struct MainTabView: View {
                 ProgressView_()
             }
             
-            Tab("Companion", systemImage: "face.smiling.fill", value: .companion) {
-                CompanionView()
+            Tab("Insights", systemImage: "chart.line.uptrend.xyaxis", value: .insights) {
+                InsightsView()
             }
             
             Tab("Settings", systemImage: "gearshape.fill", value: .settings) {

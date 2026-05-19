@@ -15,6 +15,7 @@ struct BreathingSessionView: View {
     @State private var hasStarted = false
     @State private var showCompletion = false
     @State private var showConfetti = false
+    @State private var postSessionFeeling: Int = 0  // 0 = not selected, 1-5 = feeling
     
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
@@ -98,9 +99,10 @@ struct BreathingSessionView: View {
             }
             
             // Mascot
-            BreedyMascotView(
-                mood: pattern.mascotMood,
-                size: 100
+            BreedyImageView(
+                imageName: "breedy_breathe",
+                size: 100,
+                auraColor: pattern.accentColor
             )
             
             Spacer()
@@ -196,12 +198,13 @@ struct BreathingSessionView: View {
                     
                     // Mascot breathing with user
                     if showUI && !zenMode {
-                        BreedyMascotView(
-                            mood: .breathing,
+                        BreedyImageView(
+                            imageName: "breedy_breathe",
                             size: 56,
-                            isBreathing: true,
-                            breathScale: engine.currentPhase.orbScale
+                            auraColor: pattern.accentColor
                         )
+                        .scaleEffect(engine.currentPhase.orbScale)
+                        .animation(BDDesign.Motion.standard, value: engine.currentPhase)
                         .transition(.opacity)
                     }
                 }
@@ -329,58 +332,172 @@ struct BreathingSessionView: View {
     // MARK: - Completion View
     
     private func completionView(geometry: GeometryProxy) -> some View {
-        VStack(spacing: BDDesign.Spacing.xl) {
-            Spacer()
-            
-            BreedyMascotView(mood: .celebrating, size: 100)
-            
-            VStack(spacing: BDDesign.Spacing.sm) {
-                Text("Well done")
-                    .font(BDDesign.Typography.sectionHeading)
-                    .tracking(-1.28)
-                    .foregroundStyle(.white)
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: BDDesign.Spacing.xl) {
+                Spacer(minLength: BDDesign.Spacing.xl)
                 
-                Text("You completed \(engine.completedCycles) cycles in \(formattedElapsed)")
-                    .font(BDDesign.Typography.bodySmall)
-                    .foregroundStyle(.white.opacity(0.6))
-                    .multilineTextAlignment(.center)
+                let mascotName = pattern.category == .sleep ? "breedy_happy_sleep" : "breedy_greet"
+                let mascotAura = pattern.category == .sleep ? BDDesign.Colors.accentSleep : Color(hex: 0xFFD700)
+                BreedyImageView(imageName: mascotName, size: 120, auraColor: mascotAura)
+                
+                VStack(spacing: BDDesign.Spacing.sm) {
+                    Text("Well done")
+                        .font(BDDesign.Typography.sectionHeading)
+                        .tracking(-1.28)
+                        .foregroundStyle(.white)
+                    
+                    Text("You completed \(engine.completedCycles) cycles in \(formattedElapsed)")
+                        .font(BDDesign.Typography.bodySmall)
+                        .foregroundStyle(.white.opacity(0.6))
+                        .multilineTextAlignment(.center)
+                }
+                
+                // Stats
+                HStack(spacing: BDDesign.Spacing.lg) {
+                    completionStat(value: formattedElapsed, label: "Duration")
+                    completionStat(value: "\(engine.completedCycles)", label: "Cycles")
+                    completionStat(value: "+\(calculateXP()) XP", label: "Earned")
+                }
+                .padding(.horizontal)
+                
+                // Post-session reflection
+                postSessionReflection
+                
+                // Science insight
+                postSessionScienceInsight
+                
+                Button {
+                    UIApplication.shared.isIdleTimerDisabled = false
+                    let duration = Int(engine.elapsedSeconds)
+                    let cycles = engine.completedCycles
+                    onComplete(duration, cycles, true)
+                    onDismiss()
+                } label: {
+                    Text("Done")
+                        .font(BDDesign.Typography.bodyMedium)
+                        .foregroundStyle(pattern.accentColor)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(.white, in: RoundedRectangle(cornerRadius: BDDesign.Radius.comfortable))
+                }
+                .padding(.horizontal, BDDesign.Spacing.xl)
+                .padding(.bottom, BDDesign.Spacing.xl)
             }
+        }
+    }
+    
+    // MARK: - Post-Session Reflection
+    
+    private var postSessionReflection: some View {
+        VStack(spacing: BDDesign.Spacing.md) {
+            Text("How do you feel now?")
+                .font(BDDesign.Typography.bodyMedium)
+                .foregroundStyle(.white.opacity(0.7))
             
-            // Stats
-            HStack(spacing: BDDesign.Spacing.lg) {
-                completionStat(
-                    value: formattedElapsed,
-                    label: "Duration"
-                )
-                completionStat(
-                    value: "\(engine.completedCycles)",
-                    label: "Cycles"
-                )
-                completionStat(
-                    value: "+\(calculateXP()) XP",
-                    label: "Earned"
-                )
+            HStack(spacing: BDDesign.Spacing.md) {
+                ForEach(1...5, id: \.self) { level in
+                    Button {
+                        withAnimation(BDDesign.Motion.quick) {
+                            postSessionFeeling = level
+                        }
+                        HapticsManager.shared.selection()
+                    } label: {
+                        VStack(spacing: 4) {
+                            Text(feelingEmoji(level))
+                                .font(.system(size: postSessionFeeling == level ? 32 : 24))
+                            Text(feelingLabel(level))
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundStyle(.white.opacity(postSessionFeeling == level ? 0.9 : 0.4))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background {
+                            RoundedRectangle(cornerRadius: BDDesign.Radius.standard)
+                                .fill(.white.opacity(postSessionFeeling == level ? 0.15 : 0.05))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .padding(.horizontal)
-            
-            Spacer()
-            
-            Button {
-                UIApplication.shared.isIdleTimerDisabled = false
-                let duration = Int(engine.elapsedSeconds)
-                let cycles = engine.completedCycles
-                onComplete(duration, cycles, true)
-                onDismiss()
-            } label: {
-                Text("Done")
-                    .font(BDDesign.Typography.bodyMedium)
+        }
+        .padding(.horizontal, BDDesign.Spacing.xl)
+    }
+    
+    private var postSessionScienceInsight: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "brain.fill")
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(pattern.accentColor)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(.white, in: RoundedRectangle(cornerRadius: BDDesign.Radius.comfortable))
+                Text("What just happened")
+                    .font(BDDesign.Typography.captionMedium)
+                    .foregroundStyle(.white.opacity(0.6))
             }
-            .padding(.horizontal, BDDesign.Spacing.xl)
-            .padding(.bottom, BDDesign.Spacing.xl)
+            
+            Text(postSessionScienceText)
+                .font(BDDesign.Typography.bodySmall)
+                .foregroundStyle(.white.opacity(0.5))
+                .lineSpacing(3)
+            
+            // Estimated impact pills
+            HStack(spacing: 8) {
+                ForEach(pattern.benefitTags.prefix(3), id: \.self) { tag in
+                    Text(tag)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(pattern.accentColor)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(pattern.accentColor.opacity(0.15), in: Capsule())
+                }
+            }
+        }
+        .padding(BDDesign.Spacing.md)
+        .background {
+            RoundedRectangle(cornerRadius: BDDesign.Radius.standard)
+                .fill(.white.opacity(0.06))
+        }
+        .padding(.horizontal, BDDesign.Spacing.xl)
+    }
+    
+    private var postSessionScienceText: String {
+        let cycles = engine.completedCycles
+        let minutes = Int(engine.elapsedSeconds) / 60
+        
+        switch pattern.category {
+        case .calm:
+            return "Your vagus nerve received \(cycles) cycles of stimulation. This activates your parasympathetic nervous system, lowering heart rate and promoting deep calm."
+        case .focus:
+            return "\(minutes) minutes of structured breathing increased alpha brain wave activity. Your prefrontal cortex is now primed for focused, clear thinking."
+        case .sleep:
+            return "The extended exhale pattern activated your body's sleep preparation response. Core body temperature is dropping and melatonin production is increasing."
+        case .energy:
+            return "Fast-paced rhythmic breathing released noradrenaline, your body's natural alertness chemical. You should feel more awake and energized."
+        case .anxiety:
+            return "Your \(cycles) breathing cycles directly stimulated the vagal brake, counteracting the fight-or-flight response. Cortisol levels are estimated to have dropped ~15%."
+        case .custom:
+            return "You completed \(cycles) controlled breathing cycles. Each cycle helps regulate your autonomic nervous system and build stress resilience over time."
+        }
+    }
+    
+    private func feelingEmoji(_ level: Int) -> String {
+        switch level {
+        case 1: return "😣"
+        case 2: return "😕"
+        case 3: return "😌"
+        case 4: return "😊"
+        case 5: return "🤩"
+        default: return "😐"
+        }
+    }
+    
+    private func feelingLabel(_ level: Int) -> String {
+        switch level {
+        case 1: return "Worse"
+        case 2: return "Same"
+        case 3: return "Calm"
+        case 4: return "Better"
+        case 5: return "Amazing"
+        default: return ""
         }
     }
     

@@ -109,13 +109,12 @@ struct BreathingOrbView: View {
     }
 }
 
-// MARK: - Session Card
-
 struct SessionCardView: View {
     let pattern: BreathingPattern
     let onTap: () -> Void
     
     @Environment(\.colorScheme) private var colorScheme
+    @State private var showDetail = false
     
     var body: some View {
         Button(action: onTap) {
@@ -136,12 +135,25 @@ struct SessionCardView: View {
                         .font(BDDesign.Typography.bodySemibold)
                         .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
                     
-                    Text(patternDescription)
+                    Text(!pattern.description.isEmpty ? pattern.description : patternDescription)
                         .font(BDDesign.Typography.caption)
                         .foregroundStyle(BDDesign.Colors.gray500)
+                        .lineLimit(1)
                 }
                 
                 Spacer()
+                
+                // Info button
+                if !pattern.scienceDetail.isEmpty {
+                    Button {
+                        showDetail = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(BDDesign.Colors.gray400)
+                    }
+                    .buttonStyle(.plain)
+                }
                 
                 Image(systemName: "play.fill")
                     .font(.system(size: 14))
@@ -153,6 +165,9 @@ struct SessionCardView: View {
             .bdCard()
         }
         .buttonStyle(.plain)
+        .sheet(isPresented: $showDetail) {
+            PatternDetailSheet(pattern: pattern, onStart: onTap)
+        }
     }
     
     private var patternDescription: String {
@@ -163,6 +178,203 @@ struct SessionCardView: View {
             pattern.hold2Seconds > 0 ? "\(Int(pattern.hold2Seconds))s hold" : nil
         ].compactMap { $0 }
         return parts.joined(separator: " · ")
+    }
+}
+
+// MARK: - Pattern Detail Sheet
+
+struct PatternDetailSheet: View {
+    let pattern: BreathingPattern
+    let onStart: () -> Void
+    
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: BDDesign.Spacing.xl) {
+                    // Hero
+                    VStack(spacing: BDDesign.Spacing.md) {
+                        ZStack {
+                            Circle()
+                                .fill(pattern.accentColor.opacity(0.12))
+                                .frame(width: 72, height: 72)
+                            Image(systemName: pattern.icon)
+                                .font(.system(size: 28, weight: .medium))
+                                .foregroundStyle(pattern.accentColor)
+                        }
+                        
+                        Text(pattern.title)
+                            .font(BDDesign.Typography.sectionHeading)
+                            .tracking(-1.28)
+                            .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
+                        
+                        if !pattern.scienceBadge.isEmpty {
+                            HStack(spacing: 4) {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .font(.system(size: 11))
+                                Text(pattern.scienceBadge)
+                                    .font(BDDesign.Typography.captionMedium)
+                            }
+                            .foregroundStyle(BDDesign.Colors.accentFocus)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(BDDesign.Colors.accentFocus.opacity(0.1), in: Capsule())
+                        }
+                    }
+                    .padding(.top, BDDesign.Spacing.md)
+                    
+                    // Benefit Tags
+                    if !pattern.benefitTags.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(pattern.benefitTags, id: \.self) { tag in
+                                    HStack(spacing: 4) {
+                                        Image(systemName: tagIcon(for: tag))
+                                            .font(.system(size: 10, weight: .semibold))
+                                        Text(tag)
+                                            .font(BDDesign.Typography.captionMedium)
+                                    }
+                                    .foregroundStyle(pattern.accentColor)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(pattern.accentColor.opacity(0.1), in: Capsule())
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Phase diagram
+                    VStack(alignment: .leading, spacing: BDDesign.Spacing.sm) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "waveform")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(BDDesign.Colors.gray500)
+                            Text("Breathing Pattern")
+                                .font(BDDesign.Typography.captionMedium)
+                                .foregroundStyle(BDDesign.Colors.gray500)
+                        }
+                        
+                        HStack(spacing: 4) {
+                            ForEach(pattern.phases, id: \.0) { phase, duration in
+                                VStack(spacing: 4) {
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(phaseColor(phase))
+                                        .frame(height: CGFloat(duration) * 8)
+                                    
+                                    Text(phase.displayName)
+                                        .font(.system(size: 9, weight: .medium))
+                                        .foregroundStyle(BDDesign.Colors.gray500)
+                                    
+                                    Text("\(Int(duration))s")
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                                        .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
+                                }
+                                .frame(maxWidth: .infinity)
+                            }
+                        }
+                        .padding(BDDesign.Spacing.md)
+                        .background {
+                            RoundedRectangle(cornerRadius: BDDesign.Radius.standard)
+                                .fill(colorScheme == .dark ? Color.white.opacity(0.04) : BDDesign.Colors.gray50)
+                        }
+                    }
+                    
+                    // Science detail
+                    if !pattern.scienceDetail.isEmpty {
+                        VStack(alignment: .leading, spacing: BDDesign.Spacing.sm) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "brain.fill")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(BDDesign.Colors.accentFocus)
+                                Text("The Science")
+                                    .font(BDDesign.Typography.cardTitle)
+                                    .tracking(-0.96)
+                                    .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
+                            }
+                            
+                            Text(pattern.scienceDetail)
+                                .font(BDDesign.Typography.bodySmall)
+                                .foregroundStyle(BDDesign.Colors.gray600)
+                                .lineSpacing(4)
+                        }
+                        .padding(BDDesign.Spacing.lg)
+                        .bdCard()
+                    }
+                    
+                    // One-line description
+                    if !pattern.description.isEmpty {
+                        HStack(spacing: 8) {
+                            Image(systemName: "quote.opening")
+                                .font(.system(size: 12))
+                                .foregroundStyle(BDDesign.Colors.gray400)
+                            Text(pattern.description)
+                                .font(BDDesign.Typography.body)
+                                .italic()
+                                .foregroundStyle(BDDesign.Colors.gray500)
+                        }
+                        .padding(BDDesign.Spacing.md)
+                    }
+                    
+                    // Start button
+                    Button {
+                        dismiss()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { onStart() }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 14))
+                            Text("Start Session")
+                                .font(BDDesign.Typography.bodyMedium)
+                        }
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(pattern.accentColor, in: RoundedRectangle(cornerRadius: BDDesign.Radius.comfortable))
+                    }
+                }
+                .padding(.horizontal, BDDesign.Spacing.lg)
+                .padding(.bottom, BDDesign.Spacing.xl)
+            }
+            .background(colorScheme == .dark ? Color(hex: 0x0A0A0A) : BDDesign.Colors.gray50)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(BDDesign.Colors.gray400)
+                            .padding(8)
+                            .background(Circle().fill(colorScheme == .dark ? Color.white.opacity(0.06) : BDDesign.Colors.gray100))
+                    }
+                }
+            }
+        }
+        .presentationDetents([.large])
+    }
+    
+    private func phaseColor(_ phase: BreathPhase) -> Color {
+        switch phase {
+        case .inhale: return BDDesign.Colors.accentCalm
+        case .hold1:  return BDDesign.Colors.accentFocus
+        case .exhale: return BDDesign.Colors.accentSleep
+        case .hold2:  return BDDesign.Colors.gray400
+        }
+    }
+    
+    private func tagIcon(for tag: String) -> String {
+        if tag.contains("HRV") { return "heart.fill" }
+        if tag.contains("Cortisol") { return "arrow.down.heart.fill" }
+        if tag.contains("Sleep") || tag.contains("Melatonin") { return "moon.fill" }
+        if tag.contains("Vagal") || tag.contains("Vagus") { return "brain.head.profile" }
+        if tag.contains("Focus") || tag.contains("Alertness") { return "scope" }
+        if tag.contains("Anxiety") || tag.contains("Heart Rate") { return "heart.fill" }
+        if tag.contains("Energy") || tag.contains("Noradrenaline") { return "bolt.fill" }
+        if tag.contains("Relaxation") || tag.contains("Muscle") { return "figure.mind.and.body" }
+        if tag.contains("Resonance") || tag.contains("Nervous") { return "waveform.path" }
+        if tag.contains("Blood Pressure") { return "drop.fill" }
+        return "sparkles"
     }
 }
 
@@ -282,21 +494,24 @@ struct ConfettiView: View {
     @State private var particles: [ConfettiParticle] = []
     
     var body: some View {
-        ZStack {
-            ForEach(particles) { particle in
-                Circle()
-                    .fill(particle.color)
-                    .frame(width: particle.size, height: particle.size)
-                    .position(particle.position)
-                    .opacity(particle.opacity)
+        GeometryReader { geo in
+            ZStack {
+                ForEach(particles) { particle in
+                    Circle()
+                        .fill(particle.color)
+                        .frame(width: particle.size, height: particle.size)
+                        .position(particle.position)
+                        .opacity(particle.opacity)
+                }
+            }
+            .onAppear {
+                createParticles(size: geo.size)
             }
         }
-        .onAppear {
-            createParticles()
-        }
+        .ignoresSafeArea()
     }
     
-    private func createParticles() {
+    private func createParticles(size: CGSize) {
         let colors: [Color] = [
             BDDesign.Colors.accentCalm,
             BDDesign.Colors.accentEnergy,
@@ -311,7 +526,7 @@ struct ConfettiView: View {
                 color: colors.randomElement()!,
                 size: CGFloat.random(in: 4...10),
                 position: CGPoint(
-                    x: CGFloat.random(in: 0...UIScreen.main.bounds.width),
+                    x: CGFloat.random(in: 0...max(size.width, 300)),
                     y: -20
                 ),
                 opacity: 1.0
@@ -323,7 +538,7 @@ struct ConfettiView: View {
         for i in particles.indices {
             let delay = Double.random(in: 0...0.5)
             withAnimation(.easeOut(duration: 2).delay(delay)) {
-                particles[i].position.y = UIScreen.main.bounds.height + 20
+                particles[i].position.y = max(size.height, 800) + 20
                 particles[i].position.x += CGFloat.random(in: -100...100)
                 particles[i].opacity = 0
             }

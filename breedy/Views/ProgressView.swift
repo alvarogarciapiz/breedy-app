@@ -68,9 +68,10 @@ struct ProgressView_: View {
                 
                 Spacer()
                 
-                BreedyMascotView(
-                    mood: levelMascotMood,
-                    size: 56
+                BreedyImageView(
+                    imageName: "breedy_awake",
+                    size: 56,
+                    showAura: false
                 )
             }
             

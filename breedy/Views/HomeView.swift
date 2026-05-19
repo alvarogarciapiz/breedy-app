@@ -20,6 +20,9 @@ struct HomeView: View {
                     // Header with greeting + mascot
                     headerSection
                     
+                    // Daily goal progress
+                    dailyGoalSection
+                    
                     // Mood selector
                     moodSection
                     
@@ -32,6 +35,9 @@ struct HomeView: View {
                     
                     // Stats row
                     statsRow
+                    
+                    // Science insight
+                    homeScienceTip
                     
                     // Resume last session
                     if let last = lastSession {
@@ -64,22 +70,106 @@ struct HomeView: View {
                         .tracking(-1.28)
                         .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
                     
-                    Text("Ready to breathe?")
+                    Text(personalizedSubtitle)
                         .font(BDDesign.Typography.bodyLarge)
                         .foregroundStyle(BDDesign.Colors.gray500)
                 }
                 
                 Spacer()
                 
-                BreedyMascotView(
-                    mood: selectedMood != nil
-                        ? moodToMascotMood(selectedMood!)
-                        : appState.timeOfDay.mascotMood,
-                    size: 64
+                BreedyImageView(
+                    imageName: homeBreedyImage,
+                    size: 64,
+                    auraColor: homeBreedyAura
                 )
             }
         }
         .padding(.top, BDDesign.Spacing.lg)
+    }
+    
+    private var personalizedSubtitle: String {
+        let goal = appState.userGoal
+        if !goal.isEmpty {
+            switch appState.timeOfDay {
+            case .morning:   return "Start your day with intention"
+            case .afternoon: return "A mindful break to recenter"
+            case .evening:   return "Wind down and find your calm"
+            case .night:     return "Breathe into restful sleep"
+            }
+        }
+        return "Ready to breathe?"
+    }
+    
+    private var homeBreedyImage: String {
+        if selectedMood != nil { return "breedy_breathe" }
+        
+        let goalMinutes = Double(appState.dailyGoalMinutes)
+        let todayMin = stats?.todayMinutes ?? 0
+        let isComplete = goalMinutes > 0 && todayMin >= goalMinutes
+        
+        switch appState.timeOfDay {
+        case .night, .evening:
+            return isComplete ? "breedy_happy_sleep" : "breedy_sleep"
+        case .morning:   return "breedy_greet"
+        case .afternoon: return "breedy_awake"
+        }
+    }
+    
+    private var homeBreedyAura: Color {
+        switch appState.timeOfDay {
+        case .night:     return BDDesign.Colors.accentSleep
+        case .evening:   return BDDesign.Colors.accentSleep
+        case .morning:   return Color(hex: 0xFF9800)
+        case .afternoon: return BDDesign.Colors.accentCalm
+        }
+    }
+    
+    // MARK: - Daily Goal
+    
+    private var dailyGoalSection: some View {
+        let goalMinutes = Double(appState.dailyGoalMinutes)
+        let todayMin = stats?.todayMinutes ?? 0
+        let progress = goalMinutes > 0 ? min(todayMin / goalMinutes, 1.0) : 0
+        let isComplete = todayMin >= goalMinutes
+        
+        return HStack(spacing: BDDesign.Spacing.md) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Image(systemName: isComplete ? "checkmark.circle.fill" : "target")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(isComplete ? Color(hex: 0x4CAF50) : BDDesign.Colors.accentCalm)
+                    
+                    Text(isComplete ? "Daily goal complete!" : "Daily Goal")
+                        .font(BDDesign.Typography.bodySemibold)
+                        .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
+                }
+                
+                Text("\(Int(todayMin)) of \(appState.dailyGoalMinutes) min today")
+                    .font(BDDesign.Typography.caption)
+                    .foregroundStyle(BDDesign.Colors.gray500)
+                
+                // Progress bar
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(colorScheme == .dark ? Color.white.opacity(0.08) : BDDesign.Colors.gray100)
+                        Capsule()
+                            .fill(
+                                isComplete
+                                    ? Color(hex: 0x4CAF50)
+                                    : BDDesign.Colors.accentCalm
+                            )
+                            .frame(width: max(geo.size.width * progress, 4))
+                    }
+                }
+                .frame(height: 5)
+                .clipShape(Capsule())
+            }
+            
+            Spacer()
+        }
+        .padding(BDDesign.Spacing.md)
+        .bdCard()
     }
     
     // MARK: - Mood Selection
@@ -155,7 +245,14 @@ struct HomeView: View {
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(BDDesign.Colors.gray900, in: RoundedRectangle(cornerRadius: BDDesign.Radius.standard))
+                .background(
+                    LinearGradient(
+                        colors: [BDDesign.Colors.gray900, Color(hex: 0x1A1A1A)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    in: RoundedRectangle(cornerRadius: BDDesign.Radius.standard)
+                )
             }
             
             // Featured session
@@ -227,6 +324,45 @@ struct HomeView: View {
         StreakBadgeView(streak: stats?.currentStreak ?? 0)
     }
     
+    // MARK: - Science Tip
+    
+    private var homeScienceTip: some View {
+        let tips: [(icon: String, text: String)] = [
+            ("brain.fill", "Slow exhales activate your vagus nerve, triggering your body's natural calming system."),
+            ("heart.fill", "5 min of controlled breathing can improve HRV by up to 15% — a key longevity biomarker."),
+            ("lungs.fill", "Each breath cycle at 5.5 breaths/min synchronizes your heart, lungs, and nervous system."),
+            ("figure.mind.and.body", "Breathwork reduces cortisol levels by ~15%, improving mood and focus within minutes."),
+            ("waveform.path", "Resonance breathing creates a state where your cardiovascular system operates at peak efficiency.")
+        ]
+        let tip = tips[Calendar.current.component(.hour, from: Date()) % tips.count]
+        
+        return HStack(alignment: .top, spacing: BDDesign.Spacing.sm) {
+            Image(systemName: tip.icon)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(BDDesign.Colors.accentFocus)
+                .padding(.top, 2)
+            
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Did you know?")
+                    .font(BDDesign.Typography.captionMedium)
+                    .foregroundStyle(BDDesign.Colors.accentFocus)
+                Text(tip.text)
+                    .font(BDDesign.Typography.caption)
+                    .foregroundStyle(BDDesign.Colors.gray500)
+                    .lineSpacing(2)
+            }
+        }
+        .padding(BDDesign.Spacing.md)
+        .background {
+            RoundedRectangle(cornerRadius: BDDesign.Radius.standard)
+                .fill(BDDesign.Colors.accentFocus.opacity(0.06))
+                .overlay {
+                    RoundedRectangle(cornerRadius: BDDesign.Radius.standard)
+                        .strokeBorder(BDDesign.Colors.accentFocus.opacity(0.12), lineWidth: 1)
+                }
+        }
+    }
+    
     // MARK: - Smart Suggestion
     
     private var smartSuggestion: some View {
@@ -280,6 +416,14 @@ struct HomeView: View {
     }
     
     private var smartSuggestionText: String {
+        let goal = appState.userGoal
+        if goal == "Reduce Stress" || goal == "Manage Anxiety" {
+            return "Your personalized session to find calm"
+        } else if goal == "Improve Focus" {
+            return "A focused breathing break based on your goals"
+        } else if goal == "Better Sleep" {
+            return "Prepare your body and mind for rest"
+        }
         switch appState.timeOfDay {
         case .morning:   return "Start your day with energizing breaths"
         case .afternoon: return "A quick breathing break to sharpen focus"

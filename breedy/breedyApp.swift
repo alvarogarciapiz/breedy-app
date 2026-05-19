@@ -6,6 +6,7 @@ struct BreedyApp: App {
     
     @State private var appState = AppState()
     @State private var statsManager = StatsManager()
+    @State private var subscriptionManager = SubscriptionManager()
     
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
@@ -31,6 +32,7 @@ struct BreedyApp: App {
             RootView()
                 .environment(appState)
                 .environment(statsManager)
+                .environment(subscriptionManager)
                 .onAppear {
                     statsManager.configure(
                         modelContext: sharedModelContainer.mainContext
@@ -45,13 +47,16 @@ struct BreedyApp: App {
 // MARK: - Root View
 
 struct RootView: View {
-    @Environment(AppState.self) private var appState
+    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
+    @AppStorage("isSubscribed") private var isSubscribed = false
     
     var body: some View {
-        if appState.hasSeenOnboarding {
-            MainTabView()
-        } else {
+        if !hasSeenOnboarding {
             OnboardingView()
+        } else if !isSubscribed {
+            PaywallView()
+        } else {
+            MainTabView()
         }
     }
 }

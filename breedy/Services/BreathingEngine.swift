@@ -118,8 +118,8 @@ final class BreathingEngine {
     
     private func startTimer() {
         let interval = tickInterval
-        let timer = Timer(timeInterval: interval, repeats: true) { @Sendable [weak self] _ in
-            Task { @MainActor in
+        let timer = Timer(timeInterval: interval, repeats: true) { _ in
+            Task { @MainActor [weak self] in
                 self?.tick()
             }
         }
