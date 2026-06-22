@@ -29,12 +29,12 @@ enum BDDesign {
         static let badgeBlueBg = Color(hex: 0xEBF5FF)
         static let badgeBlueText = Color(hex: 0x0068D6)
         
-        // Accent — functional, not decorative
-        static let accentCalm = Color(hex: 0x0A72EF)    // Blue — focus/calm
-        static let accentEnergy = Color(hex: 0xFF5B4F)   // Coral-red — energy
-        static let accentSleep = Color(hex: 0x7928CA)    // Purple — sleep
-        static let accentAnxiety = Color(hex: 0xDE1D8D)  // Pink — relief
-        static let accentFocus = Color(hex: 0x0070F3)    // Bright blue — focus
+        // Accent — functional, not decorative (2026 muted earthy palette)
+        static let accentCalm = Color(hex: 0x5C7C8A)     // Dusty Blue / Slate
+        static let accentEnergy = Color(hex: 0xD27D60)   // Terracotta
+        static let accentSleep = Color(hex: 0x635D7A)    // Lavender Ash
+        static let accentAnxiety = Color(hex: 0xC88A8A)  // Dusty Rose
+        static let accentFocus = Color(hex: 0x4A7B76)    // Muted Teal
         
         // Mood colors
         static func moodColor(for mood: MoodState) -> Color {
@@ -56,17 +56,17 @@ enum BDDesign {
     // Using native SF Pro per DESIGN.md instruction: "For typography use native Apple one"
     
     enum Typography {
-        static let displayHero = Font.system(size: 34, weight: .semibold, design: .default)
-        static let sectionHeading = Font.system(size: 28, weight: .semibold, design: .default)
-        static let subheadingLarge = Font.system(size: 24, weight: .semibold, design: .default)
-        static let subheading = Font.system(size: 24, weight: .regular, design: .default)
-        static let cardTitle = Font.system(size: 20, weight: .semibold, design: .default)
-        static let cardTitleLight = Font.system(size: 20, weight: .medium, design: .default)
+        static let displayHero = Font.system(size: 34, weight: .regular, design: .serif)
+        static let sectionHeading = Font.system(size: 28, weight: .medium, design: .serif)
+        static let subheadingLarge = Font.system(size: 24, weight: .regular, design: .serif)
+        static let subheading = Font.system(size: 24, weight: .light, design: .serif)
+        static let cardTitle = Font.system(size: 20, weight: .medium, design: .serif)
+        static let cardTitleLight = Font.system(size: 20, weight: .regular, design: .serif)
         static let bodyLarge = Font.system(size: 17, weight: .regular, design: .default)
         static let body = Font.system(size: 16, weight: .regular, design: .default)
         static let bodySmall = Font.system(size: 15, weight: .regular, design: .default)
         static let bodyMedium = Font.system(size: 15, weight: .medium, design: .default)
-        static let bodySemibold = Font.system(size: 15, weight: .semibold, design: .default)
+        static let bodySemibold = Font.system(size: 15, weight: .semibold, design: .serif)
         static let button = Font.system(size: 14, weight: .medium, design: .default)
         static let buttonSmall = Font.system(size: 14, weight: .regular, design: .default)
         static let caption = Font.system(size: 12, weight: .regular, design: .default)
@@ -160,9 +160,9 @@ struct BDCardStyle: ViewModifier {
                 RoundedRectangle(cornerRadius: BDDesign.Radius.comfortable)
                     .strokeBorder(
                         colorScheme == .dark
-                            ? Color.white.opacity(0.06)
-                            : Color.black.opacity(0.08),
-                        lineWidth: 1
+                            ? Color.white.opacity(0.04)
+                            : Color.black.opacity(0.06),
+                        lineWidth: 0.5
                     )
             }
     }
@@ -209,7 +209,7 @@ struct BDSecondaryButton: ViewModifier {
                     .fill(colorScheme == .dark ? Color(hex: 0x2C2C2E) : .white)
                     .overlay {
                         RoundedRectangle(cornerRadius: BDDesign.Radius.standard)
-                            .strokeBorder(Color(hex: 0xEBEBEB), lineWidth: 1)
+                            .strokeBorder(Color(hex: 0xEBEBEB), lineWidth: 0.5)
                     }
             }
     }

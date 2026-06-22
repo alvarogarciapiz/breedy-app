@@ -81,6 +81,15 @@ final class DailyCheckIn {
         self.sleepQuality = sleepQuality
         self.notes = notes
     }
+    
+    var readinessScore: Int {
+        // Formula: Sleep + Energy + Mood + Inverted Stress (6 - Stress).
+        // Max possible is 5 + 5 + 5 + 5 = 20.
+        // Multiply by 5 to get a 0-100% score.
+        let invertedStress = 6 - stressLevel
+        let total = sleepQuality + energyLevel + moodLevel + invertedStress
+        return Int((Double(total) / 20.0) * 100)
+    }
 }
 
 // MARK: - Badge / Achievement
@@ -143,6 +152,35 @@ final class CustomPatternRecord {
     }
 }
 
+// MARK: - Daily Quest Storage
+
+@Model
+final class DailyQuestRecord {
+    var id: String
+    var title: String
+    var descriptionText: String
+    var icon: String
+    var xpReward: Int
+    var isCompleted: Bool
+    var date: Date
+    var type: String // e.g., "duration", "pattern", "checkin", "timeOfDay"
+    var targetValue: Int
+    var currentValue: Int
+    
+    init(id: String, title: String, descriptionText: String, icon: String, xpReward: Int, type: String, targetValue: Int, date: Date = Date()) {
+        self.id = id
+        self.title = title
+        self.descriptionText = descriptionText
+        self.icon = icon
+        self.xpReward = xpReward
+        self.isCompleted = false
+        self.date = date
+        self.type = type
+        self.targetValue = targetValue
+        self.currentValue = 0
+    }
+}
+
 // MARK: - User Stats (Computed helper)
 
 struct UserStats {
@@ -159,6 +197,13 @@ struct UserStats {
 
 // MARK: - Badge Definition
 
+enum BadgeTier: String, Codable {
+    case common = "Common"
+    case rare = "Rare"
+    case epic = "Epic"
+    case legendary = "Legendary"
+}
+
 struct BadgeDefinition: Identifiable {
     let id: String
     let title: String
@@ -166,39 +211,44 @@ struct BadgeDefinition: Identifiable {
     let icon: String
     let requirement: String
     let xpReward: Int
+    let tier: BadgeTier
     
     static let allBadges: [BadgeDefinition] = [
-        BadgeDefinition(id: "first_breath", title: "First Breath", description: "Complete your first session", icon: "lungs.fill", requirement: "1 session", xpReward: 50),
-        BadgeDefinition(id: "three_day_flow", title: "3-Day Flow", description: "Breathe for 3 days in a row", icon: "flame.fill", requirement: "3 day streak", xpReward: 100),
-        BadgeDefinition(id: "seven_day_flow", title: "7-Day Flow", description: "A full week of breathing", icon: "flame.fill", requirement: "7 day streak", xpReward: 200),
-        BadgeDefinition(id: "thirty_day_master", title: "Monthly Master", description: "30 days of consistency", icon: "crown.fill", requirement: "30 day streak", xpReward: 500),
-        BadgeDefinition(id: "ten_minutes", title: "Deep Diver", description: "Breathe for 10 total minutes", icon: "water.waves", requirement: "10 minutes", xpReward: 50),
-        BadgeDefinition(id: "hundred_minutes", title: "100 Minutes", description: "100 minutes of mindful breathing", icon: "sparkles", requirement: "100 minutes", xpReward: 300),
-        BadgeDefinition(id: "calm_master", title: "Calm Master", description: "Complete 20 calm sessions", icon: "leaf.fill", requirement: "20 calm sessions", xpReward: 250),
-        BadgeDefinition(id: "night_owl", title: "Night Owl", description: "Complete a session after 10 PM", icon: "moon.stars.fill", requirement: "Late session", xpReward: 75),
-        BadgeDefinition(id: "early_bird", title: "Early Bird", description: "Complete a session before 7 AM", icon: "sunrise.fill", requirement: "Early session", xpReward: 75),
-        BadgeDefinition(id: "explorer", title: "Explorer", description: "Try 5 different breathing patterns", icon: "map.fill", requirement: "5 patterns", xpReward: 150),
-        BadgeDefinition(id: "custom_creator", title: "Custom Creator", description: "Create your first custom pattern", icon: "wand.and.stars", requirement: "1 custom pattern", xpReward: 100),
-        BadgeDefinition(id: "zen_master", title: "Zen Master", description: "Complete a 10-minute session", icon: "figure.mind.and.body", requirement: "10 min session", xpReward: 200),
+        BadgeDefinition(id: "first_breath", title: "Protocol Initiation", description: "Complete your first clinical session", icon: "lungs.fill", requirement: "1 session", xpReward: 50, tier: .common),
+        BadgeDefinition(id: "three_day_flow", title: "3-Day Adherence", description: "Maintain regulation for 3 days", icon: "flame.fill", requirement: "3 day streak", xpReward: 100, tier: .common),
+        BadgeDefinition(id: "seven_day_flow", title: "7-Day Adherence", description: "A full week of neuroplasticity", icon: "flame.fill", requirement: "7 day streak", xpReward: 200, tier: .rare),
+        BadgeDefinition(id: "thirty_day_master", title: "Monthly Sustenance", description: "30 days of autonomic balance", icon: "crown.fill", requirement: "30 day streak", xpReward: 500, tier: .epic),
+        BadgeDefinition(id: "ten_minutes", title: "Deep Regulation", description: "10 total minutes of breathwork", icon: "water.waves", requirement: "10 minutes", xpReward: 50, tier: .common),
+        BadgeDefinition(id: "hundred_minutes", title: "Extended Regulation", description: "100 total minutes of breathwork", icon: "sparkles", requirement: "100 minutes", xpReward: 300, tier: .rare),
+        BadgeDefinition(id: "calm_master", title: "Vagal Master", description: "Complete 20 parasympathetic sessions", icon: "leaf.fill", requirement: "20 calm sessions", xpReward: 250, tier: .epic),
+        BadgeDefinition(id: "night_owl", title: "Circadian Late Shift", description: "Evening down-regulation protocol", icon: "moon.stars.fill", requirement: "Late session", xpReward: 75, tier: .rare),
+        BadgeDefinition(id: "early_bird", title: "Circadian Early Shift", description: "Morning activation protocol", icon: "sunrise.fill", requirement: "Early session", xpReward: 75, tier: .rare),
+        BadgeDefinition(id: "explorer", title: "Protocol Diversity", description: "Utilize 5 different protocols", icon: "map.fill", requirement: "5 patterns", xpReward: 150, tier: .epic),
+        BadgeDefinition(id: "custom_creator", title: "Custom Prescriber", description: "Design a custom protocol", icon: "wand.and.stars", requirement: "1 custom pattern", xpReward: 100, tier: .rare),
+        BadgeDefinition(id: "zen_master", title: "Sustained Autonomic Regulation", description: "Complete a 10-minute continuous protocol", icon: "figure.mind.and.body", requirement: "10 min session", xpReward: 200, tier: .epic),
+        BadgeDefinition(id: "weekend_warrior", title: "Continuous Cycle Maintenance", description: "Maintain protocol on Sat & Sun", icon: "calendar.badge.clock", requirement: "Weekend sessions", xpReward: 150, tier: .rare),
+        BadgeDefinition(id: "consistency_king", title: "Homeostasis Expert", description: "Reach a 50-day adherence streak", icon: "crown.fill", requirement: "50 day streak", xpReward: 1000, tier: .legendary),
+        BadgeDefinition(id: "mindful_morning", title: "Morning Priming", description: "5 early morning activation sessions", icon: "sun.max.fill", requirement: "5 early sessions", xpReward: 200, tier: .epic)
     ]
 }
 
-// MARK: - Companion Unlockable
+// MARK: - Companion Aura
 
-struct CompanionUnlockable: Identifiable {
+struct CompanionAura: Identifiable {
     let id: String
     let title: String
     let description: String
     let requiredLevel: Int
-    let icon: String
+    let colorHex: UInt
 }
 
-enum CompanionUnlockables {
-    static let expressions: [CompanionUnlockable] = [
-        CompanionUnlockable(id: "wink", title: "Wink", description: "Breedy winks at you", requiredLevel: 2, icon: "😉"),
-        CompanionUnlockable(id: "sparkle", title: "Sparkle Eyes", description: "Breedy's eyes sparkle", requiredLevel: 3, icon: "✨"),
-        CompanionUnlockable(id: "rainbow", title: "Rainbow Aura", description: "A rainbow aura appears", requiredLevel: 5, icon: "🌈"),
-        CompanionUnlockable(id: "crown", title: "Crown", description: "A tiny crown for Breedy", requiredLevel: 7, icon: "👑"),
-        CompanionUnlockable(id: "butterfly", title: "Butterfly Friend", description: "A butterfly follows Breedy", requiredLevel: 10, icon: "🦋"),
+enum CompanionAuras {
+    static let allAuras: [CompanionAura] = [
+        CompanionAura(id: "default", title: "Parasympathetic Baseline", description: "Natural autonomic state", requiredLevel: 1, colorHex: 0x5C7C8A),
+        CompanionAura(id: "golden", title: "High Coherence", description: "Heart-brain synchronization", requiredLevel: 3, colorHex: 0xFFD700),
+        CompanionAura(id: "cherry", title: "Vagal Tone Enhancement", description: "Optimized parasympathetic response", requiredLevel: 5, colorHex: 0xFFB7C5),
+        CompanionAura(id: "mint", title: "Sympathetic Activation", description: "Controlled alertness", requiredLevel: 7, colorHex: 0x98FF98),
+        CompanionAura(id: "amethyst", title: "Deep Delta State", description: "Profound restorative resonance", requiredLevel: 10, colorHex: 0x9966CC),
+        CompanionAura(id: "obsidian", title: "Absolute Homeostasis", description: "Perfect physiological equilibrium", requiredLevel: 15, colorHex: 0x2A2A2A)
     ]
 }

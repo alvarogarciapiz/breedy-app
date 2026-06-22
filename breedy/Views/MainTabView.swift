@@ -11,7 +11,7 @@ struct MainTabView: View {
         @Bindable var state = appState
         
         TabView(selection: $state.selectedTab) {
-            Tab("Home", systemImage: "house.fill", value: .home) {
+            Tab("Home", systemImage: "house", value: .home) {
                 HomeView()
             }
             
@@ -19,19 +19,19 @@ struct MainTabView: View {
                 SessionsView()
             }
             
-            Tab("Progress", systemImage: "chart.bar.fill", value: .progress) {
+            Tab("Progress", systemImage: "chart.xyaxis.line", value: .progress) {
                 ProgressView_()
             }
             
-            Tab("Companion", systemImage: "face.smiling.fill", value: .companion) {
+            Tab("Companion", systemImage: "sparkles", value: .companion) {
                 CompanionView()
             }
             
-            Tab("Settings", systemImage: "gearshape.fill", value: .settings) {
+            Tab("Settings", systemImage: "gearshape", value: .settings) {
                 SettingsView()
             }
         }
-        .tint(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
+        .tint(.primary)
         .fullScreenCover(isPresented: $state.showSession) {
             if let pattern = appState.activePattern {
                 BreathingSessionView(

@@ -26,6 +26,16 @@ final class AppState {
     @ObservationIgnored
     @AppStorage("mascotIntensity") var mascotIntensity: String = "normal"
     
+    // Personalization (from enhanced onboarding)
+    @ObservationIgnored
+    @AppStorage("userName") var userName: String = ""
+    @ObservationIgnored
+    @AppStorage("userExperience") var userExperience: String = "never"
+    @ObservationIgnored
+    @AppStorage("preferredTimes") var preferredTimes: String = ""
+    @ObservationIgnored
+    @AppStorage("dailyGoalMinutes") var dailyGoalMinutes: Int = 5
+    
     // Settings
     @ObservationIgnored
     @AppStorage("soundEnabled") var soundEnabled = true
@@ -38,14 +48,20 @@ final class AppState {
     @ObservationIgnored
     @AppStorage("privacyMode") var privacyMode = false
     
+    // Parsed preferred times helper
+    var preferredTimesList: [String] {
+        preferredTimes.split(separator: ",").map(String.init)
+    }
+    
     // Time-based greeting
     var greeting: String {
         let hour = Calendar.current.component(.hour, from: Date())
+        let name = userName.isEmpty ? "" : ", \(userName)"
         switch hour {
-        case 5..<12:  return "Good morning"
-        case 12..<17: return "Good afternoon"
-        case 17..<21: return "Good evening"
-        default:      return "Good night"
+        case 5..<12:  return "Good morning\(name)"
+        case 12..<17: return "Good afternoon\(name)"
+        case 17..<21: return "Good evening\(name)"
+        default:      return "Good night\(name)"
         }
     }
     
@@ -82,13 +98,6 @@ final class AppState {
         activePattern = nil
     }
     
-    var colorSchemeOverride: ColorScheme? {
-        switch selectedTheme {
-        case "light": return .light
-        case "dark": return .dark
-        default: return nil
-        }
-    }
 }
 
 // MARK: - App Tab
@@ -118,10 +127,10 @@ enum TimeOfDay {
     
     var gradientColors: [Color] {
         switch self {
-        case .morning:   return [Color(hex: 0xFFF8E1), Color(hex: 0xFFECB3)]
-        case .afternoon: return [Color(hex: 0xE3F2FD), Color(hex: 0xBBDEFB)]
-        case .evening:   return [Color(hex: 0xFCE4EC), Color(hex: 0xF8BBD0)]
-        case .night:     return [Color(hex: 0x1A1A2E), Color(hex: 0x16213E)]
+        case .morning:   return [Color(hex: 0xF0EBE1), Color(hex: 0xE6DFD3)]
+        case .afternoon: return [Color(hex: 0xE6ECEF), Color(hex: 0xD3DDE2)]
+        case .evening:   return [Color(hex: 0xECE6E6), Color(hex: 0xE2D3D3)]
+        case .night:     return [Color(hex: 0x1E2229), Color(hex: 0x12151A)]
         }
     }
     

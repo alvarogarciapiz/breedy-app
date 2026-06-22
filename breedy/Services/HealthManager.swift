@@ -12,7 +12,15 @@ final class HealthManager {
     private(set) var isAuthorized: Bool = false
     private(set) var isAvailable: Bool = HKHealthStore.isHealthDataAvailable()
     
-    private init() {}
+    private init() {
+        checkStatus()
+    }
+    
+    func checkStatus() {
+        guard isAvailable, let mindfulType = HKObjectType.categoryType(forIdentifier: .mindfulSession) else { return }
+        let status = healthStore.authorizationStatus(for: mindfulType)
+        isAuthorized = status == .sharingAuthorized
+    }
     
     // MARK: - Authorization
     
@@ -38,6 +46,7 @@ final class HealthManager {
     // MARK: - Write Mindful Minutes
     
     func saveMindfulSession(startDate: Date, endDate: Date) async -> Bool {
+        checkStatus()
         guard isAuthorized else { return false }
         guard let mindfulType = HKObjectType.categoryType(forIdentifier: .mindfulSession) else {
             return false

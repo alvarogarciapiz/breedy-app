@@ -197,33 +197,39 @@ struct CustomSessionBuilderView: View {
     @State private var exhale: Double = 4
     @State private var hold2: Double = 4
     @State private var selectedIcon = "wind"
-    @State private var selectedColorHex: UInt = 0x0A72EF
+    @State private var selectedColorHex: UInt = 0x5C7C8A
     @State private var selectedMood: MascotMood = .calm
     
     private let icons = ["wind", "leaf.fill", "moon.fill", "bolt.fill", "heart.fill", "water.waves", "sun.max.fill", "sparkles"]
     private let colors: [(String, UInt)] = [
-        ("Blue", 0x0A72EF),
-        ("Purple", 0x7928CA),
-        ("Pink", 0xDE1D8D),
-        ("Red", 0xFF5B4F),
-        ("Green", 0x4CAF50),
-        ("Teal", 0x009688),
+        ("Slate", 0x5C7C8A),
+        ("Lavender", 0x635D7A),
+        ("Rose", 0xC88A8A),
+        ("Terracotta", 0xD27D60),
+        ("Sage", 0x7F9F80),
+        ("Teal", 0x4A7B76),
     ]
     
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: BDDesign.Spacing.xl) {
-                    // Preview
-                    patternPreview
-                    
-                    // Title
+                    // Preview & Metrics
                     VStack(alignment: .leading, spacing: BDDesign.Spacing.sm) {
-                        Text("Pattern Name")
+                        Text("Cycle Preview")
                             .font(BDDesign.Typography.bodySemibold)
                             .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
                         
-                        TextField("My Pattern", text: $title)
+                        patternPreview
+                    }
+                    
+                    // Title
+                    VStack(alignment: .leading, spacing: BDDesign.Spacing.sm) {
+                        Text("Protocol Name")
+                            .font(BDDesign.Typography.bodySemibold)
+                            .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
+                        
+                        TextField("e.g. Morning Activation", text: $title)
                             .font(BDDesign.Typography.body)
                             .padding(BDDesign.Spacing.md)
                             .background {
@@ -236,8 +242,13 @@ struct CustomSessionBuilderView: View {
                             }
                     }
                     
-                    // Timing sliders
-                    timingSection
+                    // Timing configuration
+                    VStack(alignment: .leading, spacing: BDDesign.Spacing.md) {
+                        Text("Phase Timings (Seconds)")
+                            .font(BDDesign.Typography.bodySemibold)
+                            .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
+                        timingSection
+                    }
                     
                     // Icon picker
                     iconPicker
@@ -280,12 +291,40 @@ struct CustomSessionBuilderView: View {
     }
     
     private var patternPreview: some View {
-        HStack(spacing: BDDesign.Spacing.md) {
-            phaseBlock("In", seconds: inhale, color: Color(hex: selectedColorHex))
-            if hold1 > 0 { phaseBlock("Hold", seconds: hold1, color: Color(hex: selectedColorHex).opacity(0.7)) }
-            phaseBlock("Out", seconds: exhale, color: Color(hex: selectedColorHex))
-            if hold2 > 0 { phaseBlock("Hold", seconds: hold2, color: Color(hex: selectedColorHex).opacity(0.7)) }
+        let totalTime = inhale + hold1 + exhale + hold2
+        let breathsPerMin = totalTime > 0 ? 60.0 / totalTime : 0
+        
+        return VStack(spacing: BDDesign.Spacing.md) {
+            HStack(spacing: BDDesign.Spacing.sm) {
+                phaseBlock("In", seconds: inhale, color: Color(hex: selectedColorHex))
+                if hold1 > 0 { phaseBlock("Hold", seconds: hold1, color: Color(hex: selectedColorHex).opacity(0.7)) }
+                phaseBlock("Out", seconds: exhale, color: Color(hex: selectedColorHex))
+                if hold2 > 0 { phaseBlock("Hold", seconds: hold2, color: Color(hex: selectedColorHex).opacity(0.7)) }
+            }
+            
+            Divider().background(BDDesign.Colors.gray100)
+            
+            HStack {
+                VStack(alignment: .leading) {
+                    Text("Total Cycle")
+                        .font(BDDesign.Typography.caption)
+                        .foregroundStyle(BDDesign.Colors.gray500)
+                    Text(String(format: "%.1fs", totalTime))
+                        .font(BDDesign.Typography.bodySemibold)
+                        .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
+                }
+                Spacer()
+                VStack(alignment: .trailing) {
+                    Text("Rate")
+                        .font(BDDesign.Typography.caption)
+                        .foregroundStyle(BDDesign.Colors.gray500)
+                    Text(String(format: "%.1f / min", breathsPerMin))
+                        .font(BDDesign.Typography.bodySemibold)
+                        .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
+                }
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(BDDesign.Spacing.md)
         .bdCard()
     }
@@ -303,16 +342,16 @@ struct CustomSessionBuilderView: View {
     }
     
     private var timingSection: some View {
-        VStack(spacing: BDDesign.Spacing.md) {
-            timingSlider("Inhale", value: $inhale, range: 1...12)
-            timingSlider("Hold", value: $hold1, range: 0...12)
-            timingSlider("Exhale", value: $exhale, range: 1...12)
-            timingSlider("Hold 2", value: $hold2, range: 0...12)
+        VStack(spacing: BDDesign.Spacing.lg) {
+            timingSlider("Inhale", value: $inhale, range: 1...30)
+            timingSlider("Hold 1", value: $hold1, range: 0...60)
+            timingSlider("Exhale", value: $exhale, range: 1...30)
+            timingSlider("Hold 2", value: $hold2, range: 0...60)
         }
     }
     
     private func timingSlider(_ label: String, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(label)
                     .font(BDDesign.Typography.bodyMedium)
@@ -321,9 +360,15 @@ struct CustomSessionBuilderView: View {
                 Text(String(format: "%.1fs", value.wrappedValue))
                     .font(BDDesign.Typography.monoCaption)
                     .foregroundStyle(BDDesign.Colors.gray500)
+                    .frame(width: 50, alignment: .trailing)
             }
-            Slider(value: value, in: range, step: 0.5)
-                .tint(Color(hex: selectedColorHex))
+            HStack(spacing: BDDesign.Spacing.md) {
+                Slider(value: value, in: range, step: 0.5)
+                    .tint(Color(hex: selectedColorHex))
+                
+                Stepper("", value: value, in: range, step: 0.5)
+                    .labelsHidden()
+            }
         }
     }
     

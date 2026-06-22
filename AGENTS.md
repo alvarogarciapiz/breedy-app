@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**Breedy** is a native SwiftUI iOS breathing & mindfulness app. It features a lovable mascot named Breedy that guides users through breathing sessions, tracks progress, and builds daily habits — all while being privacy-first, offline-capable, and delightful.
+**Breedy** is a native SwiftUI iOS breathing & mindfulness app. It features a lovable mascot named Breedy that guides users through breathing sessions, tracks progress, and builds daily habits — all while being privacy-first, offline-capable, and delightful. Breedy is a **100% paid subscription app** — users must subscribe after onboarding to access any functionality.
 
 ---
 
@@ -16,6 +16,7 @@
 - **Health**: HealthKit (mindful minutes)
 - **Notifications**: UserNotifications framework
 - **Charts**: Swift Charts
+- **Monetization**: StoreKit 2 (subscription stub, ready for App Store Connect)
 - **Analytics**: None (privacy-first)
 - **External Dependencies**: None
 
@@ -29,7 +30,7 @@ breedy/
 ├── Design/
 │   └── BDDesign.swift           # Design system tokens (colors, typography, spacing, shadows)
 ├── Models/
-│   ├── AppState.swift           # Central app state, navigation, settings persistence
+│   ├── AppState.swift           # Central app state, navigation, settings, personalization
 │   ├── BreathingModels.swift    # Breathing phases, patterns, presets, mood states
 │   └── DataModels.swift         # SwiftData models (SessionRecord, DailyCheckIn, etc.)
 ├── Services/
@@ -37,19 +38,21 @@ breedy/
 │   ├── HapticsManager.swift     # Centralized haptic feedback
 │   ├── HealthManager.swift      # Apple Health integration
 │   ├── NotificationManager.swift # Local notification scheduling
-│   └── StatsManager.swift       # Session recording, stats, badges, data export
+│   ├── StatsManager.swift       # Session recording, stats, badges, data export
+│   └── SubscriptionManager.swift # StoreKit 2 subscription management
 ├── Components/
 │   ├── BreedyMascotView.swift   # Animated mascot drawn in SwiftUI
 │   └── SharedComponents.swift   # Reusable components (orb, cards, tiles, chips)
 ├── Views/
 │   ├── MainTabView.swift        # Tab navigation shell
-│   ├── HomeView.swift           # Home screen with mood selector, quick start
+│   ├── HomeView.swift           # Home screen with daily goal, mood selector, quick start
 │   ├── BreathingSessionView.swift # Full breathing session experience
 │   ├── SessionsView.swift       # Session library + custom pattern builder
 │   ├── ProgressView.swift       # Stats, charts, heatmap, badges
 │   ├── CompanionView.swift      # Breedy companion, check-ins, unlockables
-│   ├── OnboardingView.swift     # 3-step onboarding flow
-│   └── SettingsView.swift       # App settings, reminders, data management
+│   ├── OnboardingView.swift     # 6-step premium onboarding flow
+│   ├── PaywallView.swift        # Subscription paywall with pricing
+│   └── SettingsView.swift       # App settings, subscription, profile, reminders
 └── Assets.xcassets/             # Color assets, app icon
 ```
 
@@ -58,10 +61,15 @@ breedy/
 ## Key Architecture Decisions
 
 ### State Management
-- **`@Observable` (Observation framework)** for `AppState`, `StatsManager`, `BreathingEngine`, etc.
+- **`@Observable` (Observation framework)** for `AppState`, `StatsManager`, `BreathingEngine`, `SubscriptionManager`.
 - `@AppStorage` wrapped with `@ObservationIgnored` for persisted settings inside `@Observable` classes.
 - `@State` for view-local state.
-- Environment injection via `.environment()` for shared services.
+- Environment injection via `.environment()` for shared services (`AppState`, `StatsManager`, `SubscriptionManager`).
+
+### App Flow (Subscription-Gated)
+- `RootView` checks: `!hasSeenOnboarding` → `OnboardingView` → `!isSubscribed` → `PaywallView` → `MainTabView`.
+- No app functionality is accessible without an active subscription.
+- Onboarding collects personalization data (goal, experience, preferred times, daily commitment) before paywall.
 
 ### Breathing Engine
 - State machine with explicit states: `idle`, `active`, `paused`, `completed`.
@@ -79,6 +87,12 @@ breedy/
 - Uses native **SF Pro** typography (not Geist) per design doc instructions.
 - Shadow-as-border philosophy translated to SwiftUI overlays.
 - Adaptive dark mode throughout.
+
+### Subscription / Monetization
+- **`SubscriptionManager`** wraps StoreKit 2 (currently stubbed, saves state to `@AppStorage`).
+- Two tiers: Monthly ($4.99) and Annual ($29.99).
+- `PaywallView` shown after onboarding and on app launch for non-subscribers.
+- Pricing cards, feature list, social proof, and restore purchases in the paywall.
 
 ---
 
@@ -155,3 +169,4 @@ breedy/
 - No analytics, no tracking, no network requests.
 - Optional Apple Health integration (user-initiated).
 - Data export available as JSON.
+- Subscription state managed locally via StoreKit 2 receipts.

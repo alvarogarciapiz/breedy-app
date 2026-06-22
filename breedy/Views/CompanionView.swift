@@ -12,6 +12,9 @@ struct CompanionView: View {
     @State private var showCheckIn = false
     @State private var companionMessage = ""
     @State private var animateMessage = false
+    @State private var unlockedBadges: Set<String> = []
+    @State private var dailyQuests: [DailyQuestRecord] = []
+    @AppStorage("equippedAuraId") private var equippedAuraId = "default"
     
     // Check-in state
     @State private var stressLevel: Int = 3
@@ -26,24 +29,41 @@ struct CompanionView: View {
                     // Mascot hero
                     mascotHero
                     
+                    // Streak Banner
+                    if (stats?.currentStreak ?? 0) > 0 {
+                        streakBanner
+                    }
+                    
                     // Message bubble
                     messageBubble
                     
                     // Daily check-in
                     if !hasCheckedIn {
-                        checkInPrompt
-                    } else if showCheckIn {
-                        checkInForm
+                        if showCheckIn {
+                            checkInForm
+                        } else {
+                            checkInPrompt
+                        }
+                    } else {
+                        checkInSummary
+                    }
+                    
+                    // Daily Quests
+                    if !dailyQuests.isEmpty {
+                        dailyQuestsSection
                     }
                     
                     // Suggested session
                     suggestedSession
                     
-                    // Relationship progress
-                    relationshipSection
+                    // XP Progress
+                    xpProgressSection
                     
-                    // Unlockables
-                    unlockablesSection
+                    // Auras
+                    aurasSection
+                    
+                    // Milestones (Badges)
+                    milestonesSection
                 }
                 .padding(.horizontal, BDDesign.Spacing.lg)
                 .padding(.bottom, BDDesign.Spacing.section)
@@ -51,11 +71,12 @@ struct CompanionView: View {
             .background(colorScheme == .dark ? Color(hex: 0x0A0A0A) : BDDesign.Colors.gray50)
             .navigationTitle("Companion")
             .navigationBarTitleDisplayMode(.large)
+            .fullScreenCover(isPresented: Bindable(statsManager).showLevelUp) {
+                LevelUpView(newLevel: statsManager.newLevelReached ?? 2)
+            }
         }
         .onAppear {
-            stats = statsManager.computeStats()
-            checkTodaysCheckIn()
-            generateMessage()
+            refreshData()
         }
     }
     
@@ -63,21 +84,44 @@ struct CompanionView: View {
     
     private var mascotHero: some View {
         VStack(spacing: BDDesign.Spacing.lg) {
-            BreedyMascotView(
-                mood: companionMood,
-                size: 140
+            BreedyImageView(
+                imageName: companionImageName,
+                size: 160,
+                auraColor: companionAuraColor
             )
             
-            Text("Breedy")
-                .font(BDDesign.Typography.sectionHeading)
-                .tracking(-1.28)
-                .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
-            
-            Text("Your breathing companion")
-                .font(BDDesign.Typography.bodySmall)
-                .foregroundStyle(BDDesign.Colors.gray500)
+            VStack(spacing: 4) {
+                Text("Breedy")
+                    .font(BDDesign.Typography.sectionHeading)
+                    .tracking(-1.28)
+                    .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
+                
+                HStack(spacing: 6) {
+                    Image(systemName: "heart.text.clipboard.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(BDDesign.Colors.accentAnxiety.opacity(0.6))
+                    Text("Clinical Biofeedback Assistant")
+                        .font(BDDesign.Typography.bodySmall)
+                        .foregroundStyle(BDDesign.Colors.gray500)
+                }
+            }
         }
         .padding(.top, BDDesign.Spacing.lg)
+    }
+    
+    private var companionImageName: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        if hour >= 22 || hour < 6 { return "breedy_sleep" }
+        if let s = stats, s.currentStreak >= 7 { return "breedy_greet" }
+        return "breedy_awake"
+    }
+    
+    private var companionAuraColor: Color {
+        let defaultColor = BDDesign.Colors.accentCalm
+        guard let aura = CompanionAuras.allAuras.first(where: { $0.id == equippedAuraId }) else {
+            return defaultColor
+        }
+        return Color(hex: aura.colorHex)
     }
     
     // MARK: - Message Bubble
@@ -85,8 +129,8 @@ struct CompanionView: View {
     private var messageBubble: some View {
         VStack(alignment: .leading, spacing: BDDesign.Spacing.sm) {
             HStack(spacing: BDDesign.Spacing.sm) {
-                Text("💬")
-                Text("Breedy says")
+                Text("📋")
+                Text("Clinical Assistant")
                     .font(BDDesign.Typography.captionMedium)
                     .foregroundStyle(BDDesign.Colors.gray500)
             }
@@ -104,6 +148,39 @@ struct CompanionView: View {
             withAnimation(BDDesign.Motion.slow.delay(0.3)) {
                 animateMessage = true
             }
+        }
+    }
+    
+    // MARK: - Streak Banner
+    
+    private var streakBanner: some View {
+        let streak = stats?.currentStreak ?? 0
+        
+        return HStack {
+            Image(systemName: "flame.fill")
+                .foregroundStyle(Color.orange)
+                .font(.system(size: 24))
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(streak) Day Streak!")
+                    .font(BDDesign.Typography.bodySemibold)
+                    .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
+                
+                Text("You're on fire! Keep it up.")
+                    .font(BDDesign.Typography.caption)
+                    .foregroundStyle(BDDesign.Colors.gray500)
+            }
+            
+            Spacer()
+        }
+        .padding(BDDesign.Spacing.md)
+        .background {
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.orange.opacity(0.1))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
         }
     }
     
@@ -127,11 +204,11 @@ struct CompanionView: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Daily Check-in")
+                    Text("Symptom Assessment")
                         .font(BDDesign.Typography.bodySemibold)
                         .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
                     
-                    Text("How are you feeling today?")
+                    Text("Log current physiological state")
                         .font(BDDesign.Typography.caption)
                         .foregroundStyle(BDDesign.Colors.gray500)
                 }
@@ -152,15 +229,15 @@ struct CompanionView: View {
     
     private var checkInForm: some View {
         VStack(spacing: BDDesign.Spacing.lg) {
-            Text("How are you right now?")
+            Text("Clinical Biofeedback Assessment")
                 .font(BDDesign.Typography.cardTitle)
                 .tracking(-0.96)
                 .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
             
-            checkInSlider("Stress Level", value: $stressLevel, low: "Low", high: "High", color: BDDesign.Colors.accentAnxiety)
-            checkInSlider("Mood", value: $moodLevel, low: "Low", high: "Great", color: BDDesign.Colors.accentCalm)
-            checkInSlider("Energy", value: $energyLevel, low: "Tired", high: "Energized", color: BDDesign.Colors.accentEnergy)
-            checkInSlider("Sleep Quality", value: $sleepQuality, low: "Poor", high: "Excellent", color: BDDesign.Colors.accentSleep)
+            checkInSlider("Cortisol / Stress Index", value: $stressLevel, low: "Optimal", high: "Elevated", color: BDDesign.Colors.accentAnxiety)
+            checkInSlider("Valence / Mood State", value: $moodLevel, low: "Depressed", high: "Elevated", color: BDDesign.Colors.accentCalm)
+            checkInSlider("Metabolic Energy", value: $energyLevel, low: "Depleted", high: "Optimal", color: BDDesign.Colors.accentEnergy)
+            checkInSlider("Sleep Architecture", value: $sleepQuality, low: "Fragmented", high: "Restorative", color: BDDesign.Colors.accentSleep)
             
             Button {
                 saveCheckIn()
@@ -169,6 +246,7 @@ struct CompanionView: View {
                     .bdPrimaryButton()
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(BDDesign.Spacing.lg)
         .bdCard()
         .transition(.opacity.combined(with: .scale(scale: 0.95)))
@@ -215,6 +293,30 @@ struct CompanionView: View {
         }
     }
     
+    // MARK: - Check-in Summary
+    
+    private var checkInSummary: some View {
+        VStack(alignment: .leading, spacing: BDDesign.Spacing.md) {
+            HStack {
+                Image(systemName: "bolt.heart.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(BDDesign.Colors.accentEnergy)
+                Text("Biometric Insight")
+                    .font(BDDesign.Typography.bodySemibold)
+                    .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
+            }
+            
+            Text(statsManager.generateBiometricInsight())
+                .font(BDDesign.Typography.caption)
+                .foregroundStyle(BDDesign.Colors.gray500)
+                .lineSpacing(2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(BDDesign.Spacing.lg)
+        .bdCard()
+        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+    }
+    
     // MARK: - Suggested Session
     
     private var suggestedSession: some View {
@@ -239,22 +341,18 @@ struct CompanionView: View {
         }
     }
     
-    // MARK: - Relationship
+    // MARK: - XP Progress
     
-    private var relationshipSection: some View {
-        VStack(alignment: .leading, spacing: BDDesign.Spacing.md) {
-            Text("Your Bond with Breedy")
-                .font(BDDesign.Typography.cardTitle)
-                .tracking(-0.96)
-                .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
-            
+    private var xpProgressSection: some View {
+        VStack(spacing: BDDesign.Spacing.md) {
             let level = stats?.level ?? 1
+            let totalXP = stats?.totalXP ?? 0
             
-            HStack(spacing: BDDesign.Spacing.lg) {
-                VStack(spacing: 4) {
-                    Text("Level \(level)")
-                        .font(BDDesign.Typography.subheadingLarge)
-                        .foregroundStyle(BDDesign.Colors.accentCalm)
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Clinical Phase \(level)")
+                        .font(BDDesign.Typography.cardTitle)
+                        .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
                     Text(relationshipTitle(level: level))
                         .font(BDDesign.Typography.caption)
                         .foregroundStyle(BDDesign.Colors.gray500)
@@ -262,75 +360,213 @@ struct CompanionView: View {
                 
                 Spacer()
                 
-                VStack(spacing: 4) {
-                    Text("\(stats?.totalSessions ?? 0)")
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("\(totalXP) NP")
                         .font(BDDesign.Typography.cardTitle)
-                        .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
-                    Text("sessions together")
+                        .foregroundStyle(BDDesign.Colors.accentCalm)
+                    Text("Neuroplasticity")
                         .font(BDDesign.Typography.caption)
                         .foregroundStyle(BDDesign.Colors.gray500)
                 }
             }
-            .padding(BDDesign.Spacing.lg)
-            .bdCard()
+            
+            // XP Progress bar
+            let xpInfo = statsManager.xpForNextLevel(currentXP: totalXP)
+            VStack(spacing: 6) {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(colorScheme == .dark ? Color.white.opacity(0.08) : BDDesign.Colors.gray100)
+                        
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [BDDesign.Colors.accentCalm, BDDesign.Colors.accentFocus],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: xpInfo.needed > 0 ? geo.size.width * CGFloat(xpInfo.current) / CGFloat(xpInfo.needed) : 0)
+                    }
+                }
+                .frame(height: 8)
+                .clipShape(Capsule())
+                
+                HStack {
+                    Text("\(xpInfo.current) / \(xpInfo.needed) NP")
+                        .font(BDDesign.Typography.captionMedium)
+                        .foregroundStyle(BDDesign.Colors.gray500)
+                    Spacer()
+                    Text("Next phase")
+                        .font(BDDesign.Typography.captionMedium)
+                        .foregroundStyle(BDDesign.Colors.gray400)
+                }
+            }
+            .padding(.top, BDDesign.Spacing.xs)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(BDDesign.Spacing.lg)
+        .bdCard()
     }
     
-    // MARK: - Unlockables
+    // MARK: - Auras Section
     
-    private var unlockablesSection: some View {
+    private var aurasSection: some View {
         VStack(alignment: .leading, spacing: BDDesign.Spacing.md) {
-            Text("Unlockables")
+            Text("Resonance Modes")
                 .font(BDDesign.Typography.cardTitle)
                 .tracking(-0.96)
                 .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
             
             let level = stats?.level ?? 1
             
-            ForEach(CompanionUnlockables.expressions) { unlockable in
-                let isUnlocked = level >= unlockable.requiredLevel
-                
+            ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: BDDesign.Spacing.md) {
-                    Text(unlockable.icon)
-                        .font(.system(size: 24))
-                        .opacity(isUnlocked ? 1 : 0.3)
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(unlockable.title)
-                            .font(BDDesign.Typography.bodyMedium)
-                            .foregroundStyle(isUnlocked ? (colorScheme == .dark ? .white : BDDesign.Colors.gray900) : BDDesign.Colors.gray400)
+                    ForEach(CompanionAuras.allAuras) { aura in
+                        let isUnlocked = level >= aura.requiredLevel
+                        let isEquipped = equippedAuraId == aura.id
                         
-                        Text(isUnlocked ? unlockable.description : "Reach level \(unlockable.requiredLevel)")
-                            .font(BDDesign.Typography.caption)
-                            .foregroundStyle(BDDesign.Colors.gray500)
-                    }
-                    
-                    Spacer()
-                    
-                    if isUnlocked {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 16))
-                            .foregroundStyle(BDDesign.Colors.accentCalm)
-                    } else {
-                        Image(systemName: "lock.fill")
-                            .font(.system(size: 14))
-                            .foregroundStyle(BDDesign.Colors.gray400)
+                        Button {
+                            if isUnlocked {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    equippedAuraId = aura.id
+                                    HapticsManager.shared.selection()
+                                }
+                            }
+                        } label: {
+                            VStack(spacing: BDDesign.Spacing.sm) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color(hex: aura.colorHex))
+                                        .frame(width: 56, height: 56)
+                                        .opacity(isUnlocked ? 1 : 0.3)
+                                        .shadow(color: isEquipped ? Color(hex: aura.colorHex).opacity(0.5) : .clear, radius: 8, x: 0, y: 0)
+                                    
+                                    if !isUnlocked {
+                                        Image(systemName: "lock.fill")
+                                            .font(.system(size: 20))
+                                            .foregroundStyle(colorScheme == .dark ? .black : .white)
+                                    } else if isEquipped {
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 20, weight: .bold))
+                                            .foregroundStyle(colorScheme == .dark ? .black : .white)
+                                    }
+                                }
+                                
+                                VStack(spacing: 2) {
+                                    Text(aura.title)
+                                        .font(BDDesign.Typography.captionMedium)
+                                        .foregroundStyle(isUnlocked ? (colorScheme == .dark ? .white : BDDesign.Colors.gray900) : BDDesign.Colors.gray400)
+                                    
+                                    Text(isUnlocked ? "" : "Phase \(aura.requiredLevel)")
+                                        .font(.system(size: 10, weight: .medium))
+                                        .foregroundStyle(BDDesign.Colors.gray500)
+                                }
+                            }
+                            .padding(.vertical, BDDesign.Spacing.sm)
+                            .padding(.horizontal, BDDesign.Spacing.xs)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!isUnlocked)
                     }
                 }
-                .padding(BDDesign.Spacing.md)
-                .bdCard()
-                .opacity(isUnlocked ? 1 : 0.65)
+                .padding(.horizontal, 4)
+            }
+        }
+        .padding(.vertical, BDDesign.Spacing.sm)
+    }
+    
+    // MARK: - Milestones
+    
+    private var milestonesSection: some View {
+        VStack(alignment: .leading, spacing: BDDesign.Spacing.md) {
+            HStack {
+                Text("Biometric Achievements")
+                    .font(BDDesign.Typography.cardTitle)
+                    .tracking(-0.96)
+                    .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
+                
+                Spacer()
+                
+                Text("\(unlockedBadges.count)/\(BadgeDefinition.allBadges.count)")
+                    .font(BDDesign.Typography.caption)
+                    .foregroundStyle(BDDesign.Colors.gray500)
+            }
+            
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: BDDesign.Spacing.sm) {
+                ForEach(BadgeDefinition.allBadges) { badge in
+                    BadgeCardView(
+                        badge: badge,
+                        isUnlocked: unlockedBadges.contains(badge.id)
+                    )
+                }
+            }
+        }
+    }
+    
+    // MARK: - Daily Quests Section
+    
+    private var dailyQuestsSection: some View {
+        VStack(alignment: .leading, spacing: BDDesign.Spacing.md) {
+            HStack {
+                Text("Daily Care Plan")
+                    .font(BDDesign.Typography.cardTitle)
+                    .tracking(-0.96)
+                    .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
+                
+                Spacer()
+                
+                Text("\(dailyQuests.filter { $0.isCompleted }.count)/\(dailyQuests.count)")
+                    .font(BDDesign.Typography.caption)
+                    .foregroundStyle(BDDesign.Colors.gray500)
+            }
+            
+            VStack(spacing: BDDesign.Spacing.sm) {
+                ForEach(dailyQuests, id: \.id) { quest in
+                    HStack(spacing: BDDesign.Spacing.md) {
+                        ZStack {
+                            Circle()
+                                .fill(quest.isCompleted ? BDDesign.Colors.accentCalm : BDDesign.Colors.gray100)
+                                .frame(width: 44, height: 44)
+                            
+                            Image(systemName: quest.isCompleted ? "checkmark" : quest.icon)
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundStyle(quest.isCompleted ? .white : BDDesign.Colors.gray400)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(quest.title)
+                                .font(BDDesign.Typography.bodySemibold)
+                                .foregroundStyle(quest.isCompleted ? BDDesign.Colors.gray400 : (colorScheme == .dark ? .white : BDDesign.Colors.gray900))
+                                .strikethrough(quest.isCompleted)
+                            
+                            Text(quest.descriptionText)
+                                .font(BDDesign.Typography.caption)
+                                .foregroundStyle(BDDesign.Colors.gray500)
+                        }
+                        
+                        Spacer()
+                        
+                        Text("+\(quest.xpReward) NP")
+                            .font(BDDesign.Typography.captionMedium)
+                            .foregroundStyle(quest.isCompleted ? BDDesign.Colors.gray400 : BDDesign.Colors.accentEnergy)
+                    }
+                    .padding(BDDesign.Spacing.sm)
+                    .bdCard()
+                    .opacity(quest.isCompleted ? 0.7 : 1.0)
+                }
             }
         }
     }
     
     // MARK: - Helpers
     
-    private var companionMood: MascotMood {
-        let hour = Calendar.current.component(.hour, from: Date())
-        if hour >= 22 || hour < 6 { return .sleepy }
-        if let s = stats, s.currentStreak >= 7 { return .celebrating }
-        return .happy
+    private func refreshData() {
+        stats = statsManager.computeStats()
+        unlockedBadges = statsManager.fetchUnlockedBadgeIds()
+        dailyQuests = statsManager.fetchDailyQuests()
+        checkTodaysCheckIn()
+        generateMessage()
     }
     
     private func generateMessage() {
@@ -340,27 +576,27 @@ struct CompanionView: View {
         
         if hour >= 22 || hour < 6 {
             messages = [
-                "It's getting late. A few deep breaths can help you drift off peacefully.",
-                "The world is quiet now. Perfect time for a calming breath.",
-                "Rest well tonight. Your breathing practice is making you stronger."
+                "Circadian rhythm indicates nighttime. Commencing parasympathetic down-regulation.",
+                "Cortisol suppression recommended. Initiate deep breathing protocols for sleep induction.",
+                "Optimizing overnight heart rate variability. Proceed with respiratory modulation."
             ]
         } else if streak >= 7 {
             messages = [
-                "Amazing! \(streak) days in a row. You're building something beautiful.",
-                "Your dedication inspires me. Let's keep this flow going!",
-                "You've been so consistent. I'm proud of our journey together."
+                "Physiological adaptation confirmed: \(streak) consecutive days of active regulation.",
+                "Neurological pathways demonstrating sustained plasticity and resilience.",
+                "Consistent biofeedback loop maintained. Autonomic balance is stabilizing."
             ]
         } else if streak == 0 {
             messages = [
-                "Hey there! Ready to start something great today?",
-                "Every breath is a fresh start. Let's begin together.",
-                "I'm here whenever you need me. No pressure, just support."
+                "System ready for respiratory intervention. Awaiting protocol selection.",
+                "Baseline metrics acquired. Ready to initiate down-regulation sequence.",
+                "Clinical assistant standing by for physiological modulation."
             ]
         } else {
             messages = [
-                "Welcome back! Your \(streak)-day streak is looking strong.",
-                "Great to see you again. How about a quick breathing session?",
-                "You're doing wonderful. Consistency is your superpower."
+                "Adherence verified. \(streak)-day protocol continuity detected.",
+                "Returning to baseline. Please engage a session to maintain autonomic balance.",
+                "Routine physiological maintenance required. Select an active protocol."
             ]
         }
         
@@ -369,9 +605,9 @@ struct CompanionView: View {
     
     private func recommendedPattern() -> BreathingPattern {
         if stressLevel >= 4 {
-            return BreathingPresets.anxietyReset
+            return BreathingPresets.physiologicalSigh
         } else if energyLevel <= 2 {
-            return BreathingPresets.energyBreath
+            return BreathingPresets.kapalabhati
         } else if sleepQuality <= 2 {
             return BreathingPresets.fourSevenEight
         } else {
@@ -399,11 +635,11 @@ struct CompanionView: View {
         
         // Update message based on check-in
         if stressLevel >= 4 {
-            companionMessage = "I can see you're feeling stressed. Let's breathe through it together. You've got this. 💙"
+            companionMessage = "Sympathetic nervous system arousal detected. Commencing down-regulation protocol."
         } else if moodLevel >= 4 && energyLevel >= 4 {
-            companionMessage = "You're in great shape today! Let's keep that positive energy flowing. ✨"
+            companionMessage = "Optimal physiological homeostasis achieved. Continue maintenance."
         } else {
-            companionMessage = "Thanks for checking in. Remember, every breath brings you closer to balance."
+            companionMessage = "Biometrics logged. Adjusting neuro-respiratory recommendations accordingly."
         }
         
         HapticsManager.shared.milestone()
@@ -428,6 +664,55 @@ struct CompanionView: View {
         case 4...5: return "Soul Partners"
         case 6...8: return "Zen Masters"
         default: return "Legendary Bond"
+        }
+    }
+}
+// MARK: - Badge Card
+
+struct BadgeCardView: View {
+    let badge: BadgeDefinition
+    let isUnlocked: Bool
+    
+    @Environment(\.colorScheme) private var colorScheme
+    
+    var body: some View {
+        let accent = tierColor(for: badge.tier)
+        
+        VStack(spacing: BDDesign.Spacing.sm) {
+            Image(systemName: badge.icon)
+                .font(.system(size: 24, weight: .medium))
+                .foregroundStyle(isUnlocked ? accent : BDDesign.Colors.gray400)
+                .opacity(isUnlocked ? 1 : 0.4)
+            
+            Text(badge.title)
+                .font(BDDesign.Typography.captionMedium)
+                .foregroundStyle(isUnlocked ? (colorScheme == .dark ? .white : BDDesign.Colors.gray900) : BDDesign.Colors.gray400)
+                .multilineTextAlignment(.center)
+            
+            Text(isUnlocked ? "+\(badge.xpReward) XP" : badge.requirement)
+                .font(BDDesign.Typography.caption)
+                .foregroundStyle(isUnlocked ? accent : BDDesign.Colors.gray400)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(BDDesign.Spacing.md)
+        .background {
+            RoundedRectangle(cornerRadius: 16)
+                .fill(colorScheme == .dark ? Color.white.opacity(0.04) : .white)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(isUnlocked && badge.tier == .legendary ? accent.opacity(0.5) : Color.clear, lineWidth: 2)
+        }
+        .shadow(color: isUnlocked && badge.tier == .legendary ? accent.opacity(0.2) : .clear, radius: 10, x: 0, y: 5)
+        .opacity(isUnlocked ? 1 : 0.6)
+    }
+    
+    private func tierColor(for tier: BadgeTier) -> Color {
+        switch tier {
+        case .common: return BDDesign.Colors.accentCalm
+        case .rare: return BDDesign.Colors.accentFocus
+        case .epic: return BDDesign.Colors.accentEnergy
+        case .legendary: return Color(hex: 0xFFD700)
         }
     }
 }
