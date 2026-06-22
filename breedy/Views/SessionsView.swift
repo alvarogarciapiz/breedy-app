@@ -146,6 +146,25 @@ struct SessionsView: View {
                         }
                     }
                 }
+                
+                // Add new pattern button
+                Button {
+                    showBuilder = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 14, weight: .bold))
+                        Text("Create New Pattern")
+                            .font(BDDesign.Typography.button)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .foregroundStyle(colorScheme == .dark ? .white : BDDesign.Colors.gray900)
+                    .background {
+                        RoundedRectangle(cornerRadius: 16)
+                            .strokeBorder(colorScheme == .dark ? .white.opacity(0.1) : BDDesign.Colors.gray200, style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
+                    }
+                }
             }
         }
     }
